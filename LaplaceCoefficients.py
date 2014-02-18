@@ -1,4 +1,5 @@
 from numpy import *
+from scipy import integrate as integ
 ##
 #	Laplace coefficients:
 #		f[n-2,m-2] = f_n[ ((m-1)/m)**2/3 ]
@@ -6,6 +7,47 @@ from numpy import *
 #########################################################
 # First order terms
 #########################################################
+def deriv(fn,x,n,eps=1.e-5):
+	assert type(n)==int,"Must give integer argument for derivative!"
+	if n==0:
+		return fn(x)
+	else:
+		dfn = lambda z: deriv(fn,z,n-1,eps=eps)
+		return (dfn(x+0.5*eps) - dfn(x-0.5*eps)) / eps
+def b0(alpha,s,j):
+	"""Laplace coefficient, b_s^(j)[alpha]"""
+	assert type(j) == int, "Laplace coefficient must have integer j value"
+	#assert type(p) == int, "Laplace coefficient must have integer p value"
+	integrand = lambda phi: cos(j * phi ) / ( 1. - 2. * alpha * cos(phi) +alpha**2 )**s
+	result=integ.quad(integrand ,0,2*pi) 
+	return result[0]/ ( pi)
+
+def b(alpha,s,j,p):
+	"""The p-th derivative Laplace coefficient, b_s^(j)[alpha]"""
+	assert type(p) == int, "Laplace coefficient must have integer p value"
+	return deriv(lambda x:b0(x,s,j),alpha,p)
+def f(alpha,j):
+	return -j*b(alpha,0.5,j,0) - 0.5 * alpha * b(alpha,0.5,j,1) 
+def f1(alpha,j):
+	return (-0.5+j)*b(alpha,0.5,j-1,0) + 0.5 * alpha * b(alpha,0.5,j-1,1)
+def k(alpha,j):
+	return 0.5 * b(alpha,0.5,j,0)
+def k1(alpha,j):
+	return 0.5 * b(alpha,0.5,j,0)
+def g(alpha,j):
+	term1 = (0.5*j**2 - j*5./8.) * b(alpha,0.5,j,0)
+	term2 = (-0.25 + 0.5 * j) * alpha * b(alpha,0.5,j,1) 
+	term3 =  0.125 * alpha**2 * b(alpha,0.5,j,2)
+	return term1 + term2 + term3
+def g1(alpha,j):
+	term1 = (0.25 -7.*j/8. + j**2 /2.) * b(alpha,0.5,j-2,0)
+	term2 = (0.5*j-0.25) * alpha * b(alpha,0.5,j-2,1)
+	term3 = 0.125 * alpha**2 * b(alpha,0.5,2-j,2)
+	return term1 + term2 + term3
+def h(alpha,j):
+	term1 = (-0.5 + 1.5*j - j**2)*b(alpha,0.5,j-1,0)
+	term2 = (0.5 - j) * alpha *b(alpha,0.5,j-1,1)
+	term3 = 0.25*alpha**2 * b(alpha,0.5,j-1,2)
 
 f =array( \
 	[[-1.19049, -2.17528, -3.01071, -3.76251],\
