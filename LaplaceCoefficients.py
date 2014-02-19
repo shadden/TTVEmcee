@@ -28,22 +28,45 @@ def b(alpha,s,j,p):
 	return deriv(lambda x:b0(x,s,j),alpha,p)
 def f(alpha,j):
 	return -j*b(alpha,0.5,j,0) - 0.5 * alpha * b(alpha,0.5,j,1) 
-def f1(alpha,j):
-	return (-0.5+j)*b(alpha,0.5,j-1,0) + 0.5 * alpha * b(alpha,0.5,j-1,1)
+def f1(alpha,j,perturber="External"):
+	direct = (-0.5+j)*b(alpha,0.5,j-1,0) + 0.5 * alpha * b(alpha,0.5,j-1,1)
+	if j==2: 
+		if perturber=="External":
+			return direct - 2.*alpha
+		elif perturber =="Internal":
+			return direct - 0.5*alpha**(-2.)
+		else:
+			raise Exception("Invalid perturber type!")
+	else:
+		return direct
 def k(alpha,j):
-	return 0.5 * b(alpha,0.5,j,0)
+	direct = 0.5 * b(alpha,0.5,j,0)
+	if j==1:
+		return direct - 0.5 * alpha
+	else:
+		return direct
 def k1(alpha,j):
-	return 0.5 * b(alpha,0.5,j,0)
+	direct =  0.5 * b(alpha,0.5,j,0)
+	if j==1:
+		return direct - 0.5 / (alpha**2)
 def g(alpha,j):
 	term1 = (0.5*j**2 - j*5./8.) * b(alpha,0.5,j,0)
 	term2 = (-0.25 + 0.5 * j) * alpha * b(alpha,0.5,j,1) 
 	term3 =  0.125 * alpha**2 * b(alpha,0.5,j,2)
 	return term1 + term2 + term3
-def g1(alpha,j):
+def g1(alpha,j,perturber="External"):
 	term1 = (0.25 -7.*j/8. + j**2 /2.) * b(alpha,0.5,j-2,0)
 	term2 = (0.5*j-0.25) * alpha * b(alpha,0.5,j-2,1)
 	term3 = 0.125 * alpha**2 * b(alpha,0.5,2-j,2)
-	return term1 + term2 + term3
+	if j==3:
+		perturber=="Internal":
+			return term1 + term2 + term3 - 3. *0.125 /( alpha**2 )
+		elif perturber=="External":
+			return term1 + term2 + term3
+		else:
+			raise Exception("Invalid perturber type!")
+	else:
+		return term1 + term2 + term3
 def h(alpha,j):
 	term1 = (-0.5 + 1.5*j - j**2)*b(alpha,0.5,j-1,0)
 	term2 = (0.5 - j) * alpha *b(alpha,0.5,j-1,1)
