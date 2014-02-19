@@ -5,7 +5,7 @@ from scipy import integrate as integ
 #		f[n-2,m-2] = f_n[ ((m-1)/m)**2/3 ]
 ##
 #########################################################
-# First order terms
+# numerical calculations of coefficients
 #########################################################
 def deriv(fn,x,n,eps=1.e-5):
 	assert type(n)==int,"Must give integer argument for derivative!"
@@ -71,6 +71,40 @@ def h(alpha,j):
 	term1 = (-0.5 + 1.5*j - j**2)*b(alpha,0.5,j-1,0)
 	term2 = (0.5 - j) * alpha *b(alpha,0.5,j-1,1)
 	term3 = 0.25*alpha**2 * b(alpha,0.5,j-1,2)
+
+#########################################################
+# array-returning functions
+#########################################################
+def get_f_array(pratio):
+	alpha = pratio**(-2./3.)
+	return array( [ f(alpha,j) for j in arange(2,6)])
+def get_f1Int_array(pratio):
+	alpha = pratio**(-2./3.)
+	return array( [ f1(alpha,j,perturber="Internal") for j in arange(2,6)])
+def get_f1Ext_array(pratio):
+	alpha = pratio**(-2./3.)
+	return array( [ f1(alpha,j,perturber="External") for j in arange(2,6)])
+def get_k_array(pratio):
+	alpha = pratio**(-2./3.)
+	return array( [ k(alpha,j) for j in arange(1,5)])
+def get_k1_array(pratio):
+	alpha = pratio**(-2./3.)
+	return array( [ k1(alpha,j) for j in arange(1,5)])
+def get_g_array(pratio):
+	alpha = pratio**(-2./3.)
+	return array( [ g(alpha,j) for j in arange(3,9)])
+def get_g1Ext_array(pratio):
+	alpha = pratio**(-2./3.)
+	return array( [ g(alpha,j,perturber="External") for j in arange(3,9)])
+def get_g1Int_array(pratio):
+	alpha = pratio**(-2./3.)
+	return array( [ g(alpha,j,perturber="Internal") for j in arange(3,9)])
+def get_h_array(pratio,j):
+	alpha = pratio**(-2/3.)
+	return array( [ h(alpha,j) for j in arange(3,9)])
+#########################################################
+# old arrays
+#########################################################
 
 f =array( \
 	[[-1.19049, -2.17528, -3.01071, -3.76251],\

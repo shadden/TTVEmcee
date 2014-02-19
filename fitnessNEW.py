@@ -1,6 +1,24 @@
 from numpy import *
 import LaplaceCoefficients as LC
 
+########################################################################
+#---------------------------------------------------
+# fill laplace coefficient arrays
+#---------------------------------------------------
+f = get_f_array(pratio)
+f1Ext = get_f1Ext_array(pratio)
+f1Int = get_f1Int_array(pratio)
+k = get_k_array(pratio)
+k1 = get_k1_array(pratio)
+g = get_g_array(pratio)
+g1Ext = get_g1Ext_array(pratio)
+g1Int = get_g1Int_array(pratio)
+h = get_h_array(pratio)
+
+########################################################################
+#---------------------------------------------------
+# miscellaneous
+#---------------------------------------------------
 def linearfit(x,y):
       assert len(x)==len(y), "length of arrays unequal! x: {}, y: {}".format(len(x),len(y))
       a = array([ones(len(x)),x]).T
@@ -45,20 +63,17 @@ def recenter_best(chains, best, logprior, shrinkfactor=10.0, nthreads=1):
 # First-order terms
 ########################################################################
 def dz(pratio,j):
-	k=get_res(pratio)
 	alpha = pratio**(-2./3.)	
-	return -1.0 * LC.f[j-2,k-2] / ( sqrt(alpha)  * j * delta(pratio,j,j-1)  )
+	return -1.0 * f[j-2] / ( sqrt(alpha)  * j * delta(pratio,j,j-1)  )
 	
 def dz1(pratio,j):
-	k=get_res(pratio)
-	return -1.0  * LC.f1Int[j-2,k-2] / (j * delta(pratio,j,j-1))
+	return -1.0  * f1Int[j-2] / (j * delta(pratio,j,j-1))
 
 def dl(pratio,j,ex,ey,ex1,ey1):
-	k=get_res(pratio)
-	Zx = LC.f[j-2,k-2] * ex + LC.f1Ext[j-2,k-2] * ex1
-	Zy = LC.f[j-2,k-2] * ey + LC.f1Ext[j-2,k-2] * ey1
-	dZx = LC.df[j-2,k-2] * ex + LC.df1Ext[j-2,k-2] * ex1
-	dZy =  LC.df[j-2,k-2] * ey + LC.df1Ext[j-2,k-2] * ey1
+	Zx = f[j-2] * ex + f1Ext[j-2] * ex1
+	Zy = f[j-2] * ey + f1Ext[j-2] * ey1
+	dZx = df[j-2] * ex + df1Ext[j-2] * ex1
+	dZy =  df[j-2] * ey + df1Ext[j-2] * ey1
 	alpha = (pratio)**(-2./3.)
 	coeff = (j-1.) * 3. / (j * 2 * alpha**2 * j *  (delta(pratio,j,j-1.))**2 )
 	coeff2 = sqrt(alpha) / (j * delta(pratio,j,j-1.))
@@ -70,11 +85,10 @@ def dl(pratio,j,ex,ey,ex1,ey1):
 
 	
 def dl1(pratio,j,ex,ey,ex1,ey1):
-	k=get_res(pratio)
-	Zx = LC.f[j-2,k-2] * ex + LC.f1Int[j-2,k-2] * ex1
-	Zy = LC.f[j-2,k-2] * ey + LC.f1Int[j-2,k-2] * ey1
-	dZx = LC.df[j-2,k-2] * ex + LC.df1Int[j-2,k-2] * ex1
-	dZy =  LC.df[j-2,k-2] * ey + LC.df1Int[j-2,k-2] * ey1
+	Zx = f[j-2] * ex + f1Int[j-2] * ex1
+	Zy = f[j-2] * ey + f1Int[j-2] * ey1
+	dZx = df[j-2] * ex + df1Int[j-2] * ex1
+	dZy =  df[j-2] * ey + df1Int[j-2] * ey1
 	alpha = (pratio)**(-2./3.)
 	coeff =  -3. / (j  * 2 * (delta(pratio,j,j-1.))**2 )
 	coeff2 = -1. / (j * delta(pratio,j,j-1.) )
@@ -86,7 +100,6 @@ def dl1(pratio,j,ex,ey,ex1,ey1):
 
 
 def firstOrdCoeff(pratio,j,ex,ey,ex1,ey1):
-	k=get_res(pratio)
 	dlx,dly = dl(pratio,j,ex,ey,ex1,ey1)
 	z = dz(pratio,j)
 	vx,vy = z + dly, -dlx
@@ -94,7 +107,6 @@ def firstOrdCoeff(pratio,j,ex,ey,ex1,ey1):
 	return (vx,vy)
 
 def firstOrdCoeff1(pratio,j,ex,ey,ex1,ey1):
-	k=get_res(pratio)
 	dl1x,dl1y = dl1(pratio,j,ex,ey,ex1,ey1)
 	z1 = dz1(pratio,j)
 	v1x,v1y = z1 + dl1y, -dl1x
@@ -103,7 +115,6 @@ def firstOrdCoeff1(pratio,j,ex,ey,ex1,ey1):
 
 def get_FirstOrd_ttvfuncs(p,p1,L0,L10,j,ex,ey,ex1,ey1):
 	pratio = p1/p
-	k = get_res(pratio)
 	vx,vy = firstOrdCoeff(pratio,j,ex,ey,ex1,ey1)
 	v1x,v1y =firstOrdCoeff1(pratio,j,ex,ey,ex1,ey1)
 	cfn,sfn = sinusoids(p,p1,L0,L10,j,j-1)
@@ -117,19 +128,17 @@ def get_FirstOrd_ttvfuncs(p,p1,L0,L10,j,ex,ey,ex1,ey1):
 ########################################################################
 
 def dlO2O(pratio,j):
-	k = get_res(pratio)
 	alpha = pratio**(-2./3.)
-	term1 = 3. * pratio * LC.kj[j-1,k-2] / ( sqrt(alpha) * (1. - pratio) )
-	term2 = -2. * sqrt(alpha) * LC.dkj[j-1,k-2]
+	term1 = 3. * pratio * kj[j-1] / ( sqrt(alpha) * (1. - pratio) )
+	term2 = -2. * sqrt(alpha) * dkj[j-1]
 
 	return ( 0 , -1*(term1 + term2) / (j * (1-pratio) ))
 
 def dl1O2O(pratio,j):
-	k = get_res(pratio)
 	alpha = pratio**(-2./3.)
-	term1 = -3 * LC.k1j[j-1,k-2]/(1-pratio) 
-	term2 = 2 * alpha * LC.dk1j[j-1,k-2]
-	term3 = 2 * LC.k1j[j-1,k-2]
+	term1 = -3 * k1j[j-1]/(1-pratio) 
+	term2 = 2 * alpha * dk1j[j-1]
+	term3 = 2 * k1j[j-1]
 
 	return ( 0 , -1.* (term1 + term2 + term3) / (j * (1 - pratio) ) )
 
@@ -148,7 +157,6 @@ def one2oneCoeff1(pratio,j):
 
 def get_One2One_ttvfuncs(p,p1,L0,L10,j):
 	pratio = p1/p
-	k = get_res(pratio)
 	vx,vy = one2oneCoeff(pratio,j)
 	v1x,v1y = one2oneCoeff1(pratio,j)
 	cfn,sfn = sinusoids(p,p1,L0,L10,j,j)
@@ -168,31 +176,28 @@ def get_All_One2One(p,p1,L0,L10):
 ########################################################################
 
 def dzScnd(pratio,j,ex,ey,ex1,ey1):
-	k = get_res(pratio)
 	alpha = pratio**(-2./3.)
 
-	Zx = 2*LC.g[j-3,k-2] * ex + LC.h[j-3,k-2] * ex1
-	Zy = 2*LC.g[j-3,k-2] * ey + LC.h[j-3,k-2] * ey1
+	Zx = 2*g[j-3] * ex + h[j-3] * ex1
+	Zy = 2*g[j-3] * ey + h[j-3] * ey1
 	
 	coeff = -1. / ( sqrt(alpha) * j * delta(pratio,j,j-2) ) 
 
 	return (coeff*Zx, -1. * coeff*Zy)
 
 def dz1Scnd(pratio,j,ex,ey,ex1,ey1):
-	k = get_res(pratio)
 
-	Zx = 2*LC.g1Int[j-3,k-2] * ex1 + LC.h[j-3,k-2] * ex
-	Zy = 2*LC.g1Int[j-3,k-2] * ey1 + LC.h[j-3,k-2] * ey
+	Zx = 2*g1Int[j-3] * ex1 + h[j-3] * ex
+	Zy = 2*g1Int[j-3] * ey1 + h[j-3] * ey
 	
 	coeff = -1. / ( j * delta(pratio,j,j-2) ) 
 
 	return (coeff*Zx, -1. * coeff*Zy)
 
 def dlScnd(pratio,j,ex,ey,ex1,ey1):
-	k = get_res(pratio)
 	alpha = pratio**(-2./3.)
-	Z2x = LC.g[j-3,k-2] * (ex**2-ey**2) + LC.g1Ext[j-3,k-2] * (ex1**2-ey1**2) + LC.h[j-3,k-2] * (ex*ex1 - ey*ey1)
-	Z2y = LC.g[j-3,k-2] * (2*ex*ey) + LC.g1Ext[j-3,k-2] * (2*ex1*ey1) + LC.h[j-3,k-2] * ( ex1*ey + ey1*ex )
+	Z2x = g[j-3] * (ex**2-ey**2) + g1Ext[j-3] * (ex1**2-ey1**2) + h[j-3] * (ex*ex1 - ey*ey1)
+	Z2y = g[j-3] * (2*ex*ey) + g1Ext[j-3] * (2*ex1*ey1) + h[j-3] * ( ex1*ey + ey1*ex )
 	coeff = 1.5 * pratio * (j-2) / (j * j *  sqrt(alpha) * delta(pratio,j,j-2)**2 )
 	
 	dlx = -1 * coeff * Z2y
@@ -201,11 +206,10 @@ def dlScnd(pratio,j,ex,ey,ex1,ey1):
 	return(dlx,dly)
  
 def dl1Scnd(pratio,j,ex,ey,ex1,ey1):
-	k = get_res(pratio)
 	alpha = pratio**(-2./3.)
 
-	Z2x = LC.g[j-3,k-2] * (ex**2-ey**2) + LC.g1Int[j-3,k-2] * (ex1**2-ey1**2) + LC.h[j-3,k-2] * (ex*ex1 - ey*ey1)
-	Z2y = LC.g[j-3,k-2] * (2*ex*ey) + LC.g1Int[j-3,k-2] * (2*ex1*ey1) + LC.h[j-3,k-2] * ( ex1*ey + ey1*ex )
+	Z2x = g[j-3] * (ex**2-ey**2) + g1Int[j-3] * (ex1**2-ey1**2) + h[j-3] * (ex*ex1 - ey*ey1)
+	Z2y = g[j-3] * (2*ex*ey) + g1Int[j-3] * (2*ex1*ey1) + h[j-3] * ( ex1*ey + ey1*ex )
 
 	coeff = -1.5 / (j * delta(pratio,j,j-2) **2 )
 	
@@ -230,7 +234,6 @@ def scndOrdCoeff1(pratio,j,ex,ey,ex1,ey1):
 
 def get_ScndOrder_ttvfuncs(p,p1,L0,L10,j,ex,ey,ex1,ey1):
 	pratio = p1/p
-	k = get_res(pratio)
 	vx,vy = scndOrdCoeff(pratio,j,ex,ey,ex1,ey1)
 	v1x,v1y = scndOrdCoeff1(pratio,j,ex,ey,ex1,ey1)
 	cfn,sfn = sinusoids(p,p1,L0,L10,j,j-2)
