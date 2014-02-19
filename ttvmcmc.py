@@ -41,8 +41,6 @@ def reset_files(NTs):
 #  the fitness function
 #------------------------------------------
 p0 = array([0.,0.,0.03*cos(1.5),0.03*sin(1.4)])
-def initialize_walkers(nwalk,p0):
-	return random.normal(size=(nwalk,4)) * 0.01 + p0
 def logp(pars):
 	return 0.0
 #------------------------------------------
@@ -67,6 +65,7 @@ if __name__=="__main__":
 	parser.add_argument('--nthin', metavar='N', type=int, default=10, help='number of setps to take between each saved ensemble state')
 	parser.add_argument('--nthreads', metavar='N', type=int, default=multi.cpu_count(), help='number of concurrent threads to use')
 	parser.add_argument('-f','--first_order', default=False, action='store_true', help='only compute first-order TTV contribution')
+	parser.add_argument('--uniform', default=False, action='store_true', help='Initialze walkers to have uniform distribution in e/pomega')
 
 	args = parser.parse_args()
 	restart = args.restart
@@ -78,6 +77,13 @@ if __name__=="__main__":
 	firstFlag = args.first_order
 	ndim=4
 	
+	def initialize_walkers(nwalk,p0):
+		if args.uniform:
+			e,e1 = random.uniform(0,1,size=(nwalk,2))
+			w,w1 = random.uniform(-pi,pi,size=(nwalk,2))
+			return array([e*cos(w),e*sin(w),e1*cos(w1),e1*sin(w1)]).T
+		else:
+			return random.normal(size=(nwalk,4)) * 0.01 + p0
 	def fit(x):
 		return fitness(x,input_data,input_data1,firstOrder=firstFlag)[0]
 
