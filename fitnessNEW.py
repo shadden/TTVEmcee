@@ -286,7 +286,7 @@ def fitness(pars,input_data,input_data1,firstOrder=False):
 	
 	ex,ey,ex1,ey1 = pars
 
-	AnalyticTTVs = get_ttvs(input_data[:,0:2],input_data1[:,0:2],ex,ey,ex1,ey1,firstOrder)
+	AnalyticTTVs = get_ttvs(input_data[:,0:2],input_data1[:,0:2],ex,ey,ex1,ey1,firstOrder=firstOrder)
 	#
 	pl0tr = input_data[:,1] # Transit times of inner and outer planet
 	pl1tr = input_data1[:,1]
@@ -302,10 +302,7 @@ def fitness(pars,input_data,input_data1,firstOrder=False):
 	chi2=0.0
 	chi2 = sum( resids**2 / errs**2 ) + sum( resids1**2/errs1**2 )
     	#---------------------------------------------
-	if ex**2 + ey**2 < 1. and ex1**2 + ey1**2 < 1.:
-		return -1.0 * chi2, array([mass,mass1])
-	else:
-		return -inf,array([mass,mass1])
+	return -1.0 * chi2, array([mass,mass1])
 
 ########################################################################################
 ########################################################################################
