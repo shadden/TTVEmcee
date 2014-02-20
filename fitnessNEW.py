@@ -52,7 +52,7 @@ class fitness(object):
 		self.p = p
 		self.p1 = p1
 		self.pratio = p1/p
-		
+		self.self.alpha = (self.pratio)**(-2./3.)
 		self.f = get_f_array(pratio)
 		self.f1Ext = get_f1Ext_array(pratio)
 		self.f1Int = get_f1Int_array(pratio)
@@ -69,8 +69,7 @@ class fitness(object):
 	# First-order terms
 	########################################################################
 	def dz(self,j):
-		alpha = self.pratio**(-2./3.)	
-		return -1.0 * f[j-2] / ( sqrt(alpha)  * j * delta(self.pratio,j,j-1)  )
+		return -1.0 * f[j-2] / ( sqrt(self.alpha)  * j * delta(self.pratio,j,j-1)  )
 		
 	def dz1(self,j):
 		return -1.0  * f1Int[j-2] / (j * delta(self.pratio,j,j-1))
@@ -80,9 +79,8 @@ class fitness(object):
 		Zy = f[j-2] * ey + f1Ext[j-2] * ey1
 		dZx = df[j-2] * ex + df1Ext[j-2] * ex1
 		dZy =  df[j-2] * ey + df1Ext[j-2] * ey1
-		alpha = (self.pratio)**(-2./3.)
-		coeff = (j-1.) * 3. / (j * 2 * alpha**2 * j *  (delta(self.pratio,j,j-1.))**2 )
-		coeff2 = sqrt(alpha) / (j * delta(self.pratio,j,j-1.))
+		coeff = (j-1.) * 3. / (j * 2 * self.alpha**2 * j *  (delta(self.pratio,j,j-1.))**2 )
+		coeff2 = sqrt(self.alpha) / (j * delta(self.pratio,j,j-1.))
 		# This is correct-- note 1/i factor and Zconj in definition	
 		dlx = -1. * coeff * Zy - coeff2 * dZy
 		dly = -1. * coeff * Zx - coeff2 * dZx
@@ -95,34 +93,33 @@ class fitness(object):
 		Zy = f[j-2] * ey + f1Int[j-2] * ey1
 		dZx = df[j-2] * ex + df1Int[j-2] * ex1
 		dZy =  df[j-2] * ey + df1Int[j-2] * ey1
-		alpha = (self.pratio)**(-2./3.)
 		coeff =  -3. / (j  * 2 * (delta(self.pratio,j,j-1.))**2 )
 		coeff2 = -1. / (j * delta(self.pratio,j,j-1.) )
 		
-		dl1x = -1. * coeff * Zy - coeff2 * (Zy + alpha * dZy)
-		dl1y = -1. * coeff * Zx - coeff2 * (Zx + alpha * dZx)
+		dl1x = -1. * coeff * Zy - coeff2 * (Zy + self.alpha * dZy)
+		dl1y = -1. * coeff * Zx - coeff2 * (Zx + self.alpha * dZx)
 	
 		return (dl1x,dl1y)
 	
 	
 	def firstOrdCoeff(self,j,ex,ey,ex1,ey1):
-		dlx,dly = dl(self.pratio,j,ex,ey,ex1,ey1)
-		z = dz(self.pratio,j)
+		dlx,dly = self.dl(j,ex,ey,ex1,ey1)
+		z = self.dz(j)
 		vx,vy = z + dly, -dlx
 	
 		return (vx,vy)
 	
 	def firstOrdCoeff1(self,j,ex,ey,ex1,ey1):
-		dl1x,dl1y = dl1(self.pratio,j,ex,ey,ex1,ey1)
-		z1 = dz1(self.pratio,j)
+		dl1x,dl1y = self.dl1(j,ex,ey,ex1,ey1)
+		z1 = self.dz1(j)
 		v1x,v1y = z1 + dl1y, -dl1x
 	
 		return (v1x,v1y)
 	
 	def get_FirstOrd_ttvfuncs(self,p,p1,L0,L10,j,ex,ey,ex1,ey1):
 		self.pratio = p1/p
-		vx,vy = firstOrdCoeff(self.pratio,j,ex,ey,ex1,ey1)
-		v1x,v1y =firstOrdCoeff1(self.pratio,j,ex,ey,ex1,ey1)
+		vx,vy = self.firstOrdCoeff(self.pratio,j,ex,ey,ex1,ey1)
+		v1x,v1y = self.firstOrdCoeff1(self.pratio,j,ex,ey,ex1,ey1)
 		cfn,sfn = sinusoids(p,p1,L0,L10,j,j-1)
 		innerDt = lambda t: 1 * p * ( vx * sfn(t) + vy * cfn(t) ) / (pi)
 		outerDt = lambda t: 1 * p1 * ( v1x * sfn(t) + v1y * cfn(t) ) / (pi)
@@ -134,16 +131,14 @@ class fitness(object):
 	########################################################################
 	
 	def dlO2O(self.pratio,j):
-		alpha = self.pratio**(-2./3.)
-		term1 = 3. * self.pratio * kj[j-1] / ( sqrt(alpha) * (1. - self.pratio) )
-		term2 = -2. * sqrt(alpha) * dkj[j-1]
+		term1 = 3. * self.pratio * kj[j-1] / ( sqrt(self.alpha) * (1. - self.pratio) )
+		term2 = -2. * sqrt(self.alpha) * dkj[j-1]
 	
 		return ( 0 , -1*(term1 + term2) / (j * (1-self.pratio) ))
 	
 	def dl1O2O(self.pratio,j):
-		alpha = self.pratio**(-2./3.)
 		term1 = -3 * k1j[j-1]/(1-self.pratio) 
-		term2 = 2 * alpha * dk1j[j-1]
+		term2 = 2 * self.alpha * dk1j[j-1]
 		term3 = 2 * k1j[j-1]
 	
 		return ( 0 , -1.* (term1 + term2 + term3) / (j * (1 - self.pratio) ) )
@@ -182,12 +177,11 @@ class fitness(object):
 	########################################################################
 	
 	def dzScnd(self.pratio,j,ex,ey,ex1,ey1):
-		alpha = self.pratio**(-2./3.)
 	
 		Zx = 2*g[j-3] * ex + h[j-3] * ex1
 		Zy = 2*g[j-3] * ey + h[j-3] * ey1
 		
-		coeff = -1. / ( sqrt(alpha) * j * delta(self.pratio,j,j-2) ) 
+		coeff = -1. / ( sqrt(self.alpha) * j * delta(self.pratio,j,j-2) ) 
 	
 		return (coeff*Zx, -1. * coeff*Zy)
 	
@@ -201,10 +195,9 @@ class fitness(object):
 		return (coeff*Zx, -1. * coeff*Zy)
 	
 	def dlScnd(self.pratio,j,ex,ey,ex1,ey1):
-		alpha = self.pratio**(-2./3.)
 		Z2x = g[j-3] * (ex**2-ey**2) + g1Ext[j-3] * (ex1**2-ey1**2) + h[j-3] * (ex*ex1 - ey*ey1)
 		Z2y = g[j-3] * (2*ex*ey) + g1Ext[j-3] * (2*ex1*ey1) + h[j-3] * ( ex1*ey + ey1*ex )
-		coeff = 1.5 * self.pratio * (j-2) / (j * j *  sqrt(alpha) * delta(self.pratio,j,j-2)**2 )
+		coeff = 1.5 * self.pratio * (j-2) / (j * j *  sqrt(self.alpha) * delta(self.pratio,j,j-2)**2 )
 		
 		dlx = -1 * coeff * Z2y
 		dly = -1 * coeff * Z2x
@@ -212,7 +205,6 @@ class fitness(object):
 		return(dlx,dly)
 	 
 	def dl1Scnd(self.pratio,j,ex,ey,ex1,ey1):
-		alpha = self.pratio**(-2./3.)
 	
 		Z2x = g[j-3] * (ex**2-ey**2) + g1Int[j-3] * (ex1**2-ey1**2) + h[j-3] * (ex*ex1 - ey*ey1)
 		Z2y = g[j-3] * (2*ex*ey) + g1Int[j-3] * (2*ex1*ey1) + h[j-3] * ( ex1*ey + ey1*ex )
