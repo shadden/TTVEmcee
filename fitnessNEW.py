@@ -21,12 +21,12 @@ def sinusoids(p,p1,L0,L10,j,k):
 	sinfn =  lambda t: sin(freq * t + phi0)
 	cosfn =  lambda t: cos(freq * t + phi0)
 	
-	return (cosfn,sinfn)
+	return array([cosfn,sinfn])
 def time_to_ttv(time):
 	n = arange(len(time))
 	a = array([ones(len(time)),n]).T
 	b,m=linalg.lstsq(a, time)[0]
-	return time-m*n-b
+	return array(time-m*n-b)
 #---------------------------------------------------
 # Recenter walkers
 #---------------------------------------------------
@@ -58,7 +58,7 @@ def recenter_best(chains, best, logprior, shrinkfactor=10.0, nthreads=1):
       return new_chains
 
 class fitness(object):
-	########################################################################
+########################################################################
 	def __init__(self,input_data,input_data1):
 #################
 # Orbital parameters
@@ -71,6 +71,7 @@ class fitness(object):
 		self.p1 = p1
 		self.pratio = p1/p
 		self.alpha = (self.pratio)**(-2./3.)
+		self.j = get_res(self.p1/self.p)
 #################
 # Laplace coefficients
 #################
@@ -88,8 +89,10 @@ class fitness(object):
 		self.g1Ext = LC.get_g1Ext_array(self.pratio)
 		self.g1Int = LC.get_g1Int_array(self.pratio)
 		self.h = LC.get_h_array(self.pratio)
-		self.input_data = input_data
-		self.input_data1 = input_data1	
+		self.input_data = array(input_data)
+		self.input_data1 = array(input_data1)	
+		self.transits = self.input_data[:,1]
+		self.transits1 = self.input_data1[:,1]
 	########################################################################
 	########################################################################
 	# First-order terms
@@ -111,7 +114,7 @@ class fitness(object):
 		dlx = -1. * coeff * Zy - coeff2 * dZy
 		dly = -1. * coeff * Zx - coeff2 * dZx
 	
-		return (dlx,dly)
+		return array([dlx,dly])
 	
 		
 	def dl1(self,j,ex,ey,ex1,ey1):
@@ -125,7 +128,7 @@ class fitness(object):
 		dl1x = -1. * coeff * Zy - coeff2 * (Zy + self.alpha * dZy)
 		dl1y = -1. * coeff * Zx - coeff2 * (Zx + self.alpha * dZx)
 	
-		return (dl1x,dl1y)
+		return array([dl1x,dl1y])
 	
 	
 	def firstOrdCoeff(self,j,ex,ey,ex1,ey1):
@@ -133,14 +136,14 @@ class fitness(object):
 		z = self.dz(j)
 		vx,vy = z + dly, -dlx
 	
-		return (vx,vy)
+		return array([vx,vy])
 	
 	def firstOrdCoeff1(self,j,ex,ey,ex1,ey1):
 		dl1x,dl1y = self.dl1(j,ex,ey,ex1,ey1)
 		z1 = self.dz1(j)
 		v1x,v1y = z1 + dl1y, -dl1x
 	
-		return (v1x,v1y)
+		return array([v1x,v1y])
 	
 	def get_FirstOrd_ttvfuncs(self,L0,L10,j,ex,ey,ex1,ey1):
 		vx,vy = self.firstOrdCoeff(j,ex,ey,ex1,ey1)
@@ -149,8 +152,16 @@ class fitness(object):
 		innerDt = lambda t: 1 * self.p * ( vx * sfn(t) + vy * cfn(t) ) / (pi)
 		outerDt = lambda t: 1 * self.p1 * ( v1x * sfn(t) + v1y * cfn(t) ) / (pi)
 	
-		return (innerDt,outerDt)
+		return array([innerDt,outerDt])
 	
+	def get_FirstOrd_ttvs(self,L0,L10,j,ex,ey,ex1,ey1):
+		vx,vy = self.firstOrdCoeff(j,ex,ey,ex1,ey1)
+		v1x,v1y = self.firstOrdCoeff1(j,ex,ey,ex1,ey1)
+		cfn,sfn = sinusoids(self.p,self.p1,L0,L10,j,j-1)
+		innerDt = array(1 * self.p * ( vx * sfn(self.transits) + vy * cfn(self.transits) ) / (pi))
+		outerDt = array(1 * self.p1 * ( v1x * sfn(self.transits1) + v1y * cfn(self.transits1) ) / (pi))
+
+		return innerDt,outerDt
 	########################################################################
 	# one-to-one terms
 	########################################################################
@@ -159,27 +170,27 @@ class fitness(object):
 		term1 = 3. * self.pratio * self.kj[j-1] / ( sqrt(self.alpha) * (1. - self.pratio) )
 		term2 = -2. * sqrt(self.alpha) * self.dkj[j-1]
 	
-		return ( 0 , -1*(term1 + term2) / (j * (1-self.pratio) ))
+		return array([ 0 , -1*(term1 + term2) / (j * (1-self.pratio) )])
 	
 	def dl1O2O(self,j):
 		term1 = -3 * self.k1j[j-1]/(1-self.pratio) 
 		term2 = 2 * self.alpha * self.dk1j[j-1]
 		term3 = 2 * self.k1j[j-1]
 	
-		return ( 0 , -1.* (term1 + term2 + term3) / (j * (1 - self.pratio) ) )
+		return array([ 0 , -1.* (term1 + term2 + term3) / (j * (1 - self.pratio) ) ])
 	
 	def one2oneCoeff(self,j):
 		dlx,dly = self.dlO2O(j)
 		vx,vy =  dly, -dlx
 	
-		return (vx,vy)
+		return array([vx,vy])
 	
 	def one2oneCoeff1(self,j):
 	
 		dl1x,dl1y = self.dl1O2O(j)
 		v1x,v1y =  dl1y, -dl1x
 	
-		return (v1x,v1y)
+		return array([v1x,v1y])
 	
 	def get_One2One_ttvfuncs(self,L0,L10,j):
 		vx,vy = self.one2oneCoeff(j)
@@ -188,8 +199,17 @@ class fitness(object):
 		innerDt = lambda t: 1 * self.p * ( vx * sfn(t) + vy * cfn(t) ) / (pi)
 		outerDt = lambda t: 1 * self.p1 * ( v1x * sfn(t) + v1y * cfn(t) ) / (pi)
 	
-		return (innerDt,outerDt)
+		return array([innerDt,outerDt])
+
+	def get_One2One_ttvs(self,L0,L10,j):
+		vx,vy = self.one2oneCoeff(j)
+		v1x,v1y = self.one2oneCoeff1(j)
+		cfn,sfn = sinusoids(self.p,self.p1,L0,L10,j,j)
+		innerDt =  1 * self.p * ( vx * sfn(self.transits) + vy * cfn(self.transits) ) / (pi)
+		outerDt =  1 * self.p1 * ( v1x * sfn(self.transits1) + v1y * cfn(self.transits1) ) / (pi)
 	
+		return innerDt,outerDt
+
 	def get_All_One2One(self,L0,L10):
 	
 		inFnsO2O,outFnsO2O = array([get_One2One_ttvfuncs(L0,L10,j) for j in arange(1,6)]).T
@@ -207,7 +227,7 @@ class fitness(object):
 		
 		coeff = -1. / ( sqrt(self.alpha) * j * delta(self.pratio,j,j-2) ) 
 	
-		return (coeff*Zx, -1. * coeff*Zy)
+		return array([coeff*Zx, -1. * coeff*Zy])
 	
 	def dz1Scnd(self,j,ex,ey,ex1,ey1):
 	
@@ -216,7 +236,7 @@ class fitness(object):
 		
 		coeff = -1. / ( j * delta(self.pratio,j,j-2) ) 
 	
-		return (coeff*Zx, -1. * coeff*Zy)
+		return array([coeff*Zx, -1. * coeff*Zy])
 	
 	def dlScnd(self,j,ex,ey,ex1,ey1):
 		Z2x = self.g[j-3] * (ex**2-ey**2) + self.g1Ext[j-3] * (ex1**2-ey1**2) + self.h[j-3] * (ex*ex1 - ey*ey1)
@@ -226,7 +246,7 @@ class fitness(object):
 		dlx = -1 * coeff * Z2y
 		dly = -1 * coeff * Z2x
 		
-		return(dlx,dly)
+		return array([dlx,dly])
 	 
 	def dl1Scnd(self,j,ex,ey,ex1,ey1):
 	
@@ -238,21 +258,21 @@ class fitness(object):
 		dl1x = -1 * coeff * Z2y
 		dl1y = -1 * coeff * Z2x
 	
-		return( dl1x,dl1y)
+		return array([ dl1x,dl1y])
 	
 	def scndOrdCoeff(self,j,ex,ey,ex1,ey1):
 		dlx,dly = self.dlScnd(j,ex,ey,ex1,ey1)
 		zx,zy = self.dzScnd(j,ex,ey,ex1,ey1)
 		vx,vy = zx + dly, zy-dlx
 	
-		return (vx,vy)
+		return array([vx,vy])
 	
 	def scndOrdCoeff1(self,j,ex,ey,ex1,ey1):
 		dl1x,dl1y = self.dl1Scnd(j,ex,ey,ex1,ey1)
 		z1x,z1y = self.dz1Scnd(j,ex,ey,ex1,ey1)
 		v1x,v1y = z1x + dl1y, z1y-dl1x
 	
-		return (v1x,v1y)
+		return array([v1x,v1y])
 	
 	def get_ScndOrder_ttvfuncs(self,L0,L10,j,ex,ey,ex1,ey1):
 		vx,vy = self.scndOrdCoeff(j,ex,ey,ex1,ey1)
@@ -261,7 +281,17 @@ class fitness(object):
 		innerDt = lambda t: 1 * self.p * ( vx * sfn(t) + vy * cfn(t) ) / (pi)
 		outerDt = lambda t: 1 * self.p1 * ( v1x * sfn(t) + v1y * cfn(t) ) / (pi)
 	
-		return (innerDt,outerDt)
+		return array([innerDt,outerDt])
+
+	def get_ScndOrder_ttvs(self,L0,L10,j,ex,ey,ex1,ey1):
+
+		vx,vy = self.scndOrdCoeff(j,ex,ey,ex1,ey1)
+		v1x,v1y = self.scndOrdCoeff1(j,ex,ey,ex1,ey1)
+		cfn,sfn = sinusoids(self.p,self.p1,L0,L10,j,j-2)
+		innerDt = 1 * self.p * ( vx * sfn(self.transits) + vy * cfn(self.transits) ) / (pi)
+		outerDt = 1 * self.p1 * ( v1x * sfn(self.transits1) + v1y * cfn(self.transits1) ) / (pi)
+	
+		return innerDt,outerDt
 	########################################################################
 	# 
 	########################################################################
@@ -274,11 +304,17 @@ class fitness(object):
 		return (lambda t: sum( [fn(t) for fn in append(append(inFns,inFnsO2O),inFnsScnd) ] ),\
 			lambda t: sum( [fn(t) for fn in append(append(outFns,outFnsO2O),outFnsScnd) ] ))
 	
-	
+	def totalTTVs(self,L0,L10,ex,ey,ex1,ey1,minj=1,maxj=5):
+		
+		inDts,outDts = map(sum,transpose([ self.get_FirstOrd_ttvs( L0, L10, j, ex, ey, ex1, ey1 ) for j in arange(2,6) ]))
+		inDtsScnd,outDtsScnd = map(sum,transpose([ self.get_ScndOrder_ttvs(L0,L10,j,ex,ey,ex1,ey1) for j in arange(3,8)]))
+		inDtsO2O,outDtsO2O = map(sum,transpose([self.get_One2One_ttvs(L0,L10,j) for j in arange(minj,maxj+1)]))
+		return inDts + inDtsScnd + inDtsO2O, outDts + outDtsScnd + outDtsO2O 	
+
 	def get_ttvs(self,ex,ey,ex1,ey1,firstOrder=False):
 		#
-		transits = self.input_data[:,1]
-		transits1 = self.input_data1[:,1]
+		transits = self.transits
+		transits1 = self.transits
 		th0 = 2*pi*(-1.*self.T0)/self.p
 		theta0 = th0 + 2 * ex * sin( th0 ) + 2 * ey *(1. - cos( th0 ) )
 		th10 = 2*pi*(-1.*self.T10)/self.p1
@@ -286,13 +322,13 @@ class fitness(object):
 		L0 =  theta0  + 2 * ( ey * cos(theta0) - ex * sin(theta0) ) 
 		L10 = theta10 + 2 * ( ey1 * cos(theta10) - ex1 * sin(theta10) ) # 2.5 #
 #		
-		j = get_res(self.p1/self.p)
+		j = self.j
 		if firstOrder:
-			dt,dt1 = self.get_FirstOrd_ttvfuncs(L0,L10,j,ex,ey,ex1,ey1)
+			dt,dt1 = self.get_FirstOrd_ttvs(L0,L10,j,ex,ey,ex1,ey1)
 		else:
-			dt,dt1 = self.totalFuncs(L0,L10,ex,ey,ex1,ey1)
+			dt,dt1 = self.totalTTVs(L0,L10,ex,ey,ex1,ey1)
 		
-		return ( array(map(dt,transits)) , array(map(dt1,transits1)) )
+		return  dt , dt1 
 				
 	def fitness(self,pars,firstOrder=False):
 		
@@ -300,8 +336,8 @@ class fitness(object):
 	
 		AnalyticTTVs = self.get_ttvs(ex,ey,ex1,ey1,firstOrder=firstOrder)
 #		#
-		pl0tr = self.input_data[:,1] # Transit times of inner and outer planet
-		pl1tr = self.input_data1[:,1]
+		pl0tr = self.transits
+		pl1tr = self.transits1
 		errs,errs1 = self.input_data[:,2],self.input_data1[:,2]
 #		#
 		#MassFitData = linalg.lstsq( array([ones(len(AnalyticTTVs[0])),time_to_ttv( AnalyticTTVs[0] )]).T , time_to_ttv(pl0tr) )
@@ -314,26 +350,32 @@ class fitness(object):
 		resids1=time_to_ttv(pl1tr)  - array( time_to_ttv( AnalyticTTVs[1] ) * mass1 ) # - MassFitData1[0][0] )
 #		#---------------------------------------------
 		chi2=0.0
-		chi2 = sum( resids**2 / errs**2 ) + sum( resids1**2/errs1**2 )
+		chi2 = sum( resids**2 / errs**2 ) + sum( resids1**2/errs1**2 ) 
 #	    	#---------------------------------------------
 		return -1.0 * chi2, array([mass,mass1])
 #	
 	########################################################################################
 	########################################################################################
 	########################################################################################
-#	def testPlot(p,p1,L0,L10,j,ex,ey,ex1,ey1,terms=1):
-#		if terms == 1:
-#			inr,otr =  get_FirstOrd_ttvfuncs(p,p1,L0,L10,j,ex,ey,ex1,ey1)
-#		elif terms == 2:
-#			inr,otr = get_All_One2One(p,p1,L0,L10)
-#		elif terms == 3:
-#			inr,otr = get_ScndOrder_ttvfuncs(p,p1,L0,L10,j,ex,ey,ex1,ey1)
-#		t = linspace(0,100,400)
-#		plot(t,map(inr,t))
-#		plot(t,map(otr,t))
-#		savetxt("/tmp/inr.txt",array([t,map(inr,t)]).T)
-#		savetxt("/tmp/otr.txt",array([t,map(otr,t)]).T)
-#		show()
+if __name__=="__main__":
+	import timeit
+	input_data=loadtxt("./inner.ttv")
+	input_data1 = loadtxt("./outer.ttv")
+	ft = fitness(input_data,input_data1)
+	evals = random.normal(0,0.1,size=4)
+	s="""\
+from numpy import loadtxt
+from numpy import random
+from __main__ import fitness
+input_data=loadtxt("./inner.ttv")
+input_data1 = loadtxt("./outer.ttv")
+ft = fitness(input_data,input_data1)
+evals = random.normal(0,0.1,size=4)"""
+	if True:
+		exectimeFO = timeit.timeit(stmt='ft.fitness(evals,firstOrder=True)',setup=s,number=100)
+		print "100 executions of fitness,first-order only, in %g seconds" % exectimeFO
+		exectime = timeit.timeit('ft.fitness(evals)',setup=s,number=100)
+		print "100 executions of fitness in %g seconds" % exectime
 	########################################################################################
 	########################################################################################
 	########################################################################################
