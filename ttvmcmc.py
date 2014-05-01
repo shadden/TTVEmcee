@@ -38,12 +38,16 @@ def reset_files(NTs):
             with gzip.open('chain.{0:02d}.lnpost.dat.gz'.format(i), 'w') as out:
                   out.write(header)
 #------------------------------------------
-#  the fitness function
+#  Walker initilization
 #------------------------------------------
-p0 = array([0.,0.,0.03*cos(1.5),0.03*sin(1.4)])
+#e,e1 = 0.07,0.05
+#w,w1 = -1.0,2.0
+p0 = zeros(4)
 def initialize_walkers(nwalk,p0):
-	return random.normal(size=(nwalk,4)) * 0.01 + p0
+	return random.normal(size=(nwalk,4)) * 0.1 + p0
 def logp(pars):
+	if pars[0]**2 + pars[1]**2 >= 1 or pars[2]**2 + pars[3]**2 >= 1:
+		return -inf
 	return 0.0
 #------------------------------------------
 #  MAIN
@@ -78,8 +82,10 @@ if __name__=="__main__":
 	firstFlag = args.first_order
 	ndim=4
 	
+	# get fitness object
+	ft = fitness(input_data,input_data1)
 	def fit(x):
-		return fitness(x,input_data,input_data1,firstOrder=firstFlag)[0]
+		return ft.fitness(x,firstOrder=firstFlag)[0]
 
 	means=[]
 	p = zeros((ntemps, nwalkers, ndim))
