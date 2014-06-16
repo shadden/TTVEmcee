@@ -38,6 +38,7 @@ def reset_files(NTs):
             with gzip.open('chain.{0:02d}.lnpost.dat.gz'.format(i), 'w') as out:
                   out.write(header)
 #------------------------------------------
+<<<<<<< HEAD
 #  the fitness function
 #------------------------------------------
 p0 = array([0.,0.,0.03*cos(1.5),0.03*sin(1.5)])
@@ -46,6 +47,8 @@ def logp(pars):
 		return -inf
 	return 0.0
 #------------------------------------------
+=======
+>>>>>>> NumericalLaplaceCoeff
 #  MAIN
 #------------------------------------------
 if __name__=="__main__":
@@ -56,8 +59,8 @@ if __name__=="__main__":
 # See: https://github.com/farr/nu-ligo-utils/tree/master/ensemble-sampler : run.py
 #
 #----------------------------------------------------------------------------------
-	input_data=loadtxt("./inner.ttv")
-	input_data1 = loadtxt("./outer.ttv")
+	input_data = loadtxt("./inner.ttv")
+	input_data1= loadtxt("./outer.ttv")
 
 	parser = ArgumentParser(description='run an ensemble MCMC analysis of a pair of TTVs')
 	parser.add_argument('--restart', default=False, action='store_true', help='continue a previously-existing run')
@@ -66,8 +69,14 @@ if __name__=="__main__":
 	parser.add_argument('--ntemps', metavar='N', type=int, default=8, help='number different temperature scales to use')
 	parser.add_argument('--nthin', metavar='N', type=int, default=10, help='number of setps to take between each saved ensemble state')
 	parser.add_argument('--nthreads', metavar='N', type=int, default=multi.cpu_count(), help='number of concurrent threads to use')
+	parser.add_argument('-M','--fit_mass', default=False, action='store_true', help='Include planet masses as MCMC parameters')
+	parser.add_argument('-P','--parfile', metavar='FILE', default=None, help='Text file containing parameter values to initialize walker around.')
 	parser.add_argument('-f','--first_order', default=False, action='store_true', help='only compute first-order TTV contribution')
+<<<<<<< HEAD
 	parser.add_argument('--uniform', default=False, action='store_true', help='Initialze walkers to have uniform distribution in e/pomega')
+=======
+	parser.add_argument('--noloop', default=False, action='store_true', help='Run set-up but do not excecute the MCMC main loop')
+>>>>>>> NumericalLaplaceCoeff
 
 	args = parser.parse_args()
 	restart = args.restart
@@ -77,8 +86,8 @@ if __name__=="__main__":
 	nthin=args.nthin
 	nthreads=args.nthreads
 	firstFlag = args.first_order
-	ndim=4
 	
+<<<<<<< HEAD
 	def initialize_walkers(nwalk,p0):
 		if args.uniform:
 			e,e1 = random.uniform(0,1,size=(nwalk,2))
@@ -88,6 +97,52 @@ if __name__=="__main__":
 			return random.normal(size=(nwalk,4)) * 0.01 + p0
 	def fit(x):
 		return fitness(x,input_data,input_data1,firstOrder=firstFlag)[0]
+=======
+	# get fitness object
+#--------------------------
+	ft = fitness(input_data,input_data1)
+#--------------------------
+	if args.parfile != None:
+		try:
+			pars0 = loadtxt(args.parfile)
+		except IOError:
+			print "Parameter file %s not found!"%args.parfile
+			print "Aborting..."
+			sys.exit()
+	else:
+		pars0 = array([1.e-5,1.e-5,0,0,0,0])
+	if args.fit_mass:
+#---------------------------
+# Set-up using mass as a parameter
+#---------------------------
+		ndim = 6
+		def fit(x):
+			return ft.fitness2(x,firstOrder=firstFlag)
+		def logp(pars):
+			if pars[0] < 0. or pars[1] < [0]:
+				return -inf
+			if pars[2]**2 + pars[3]**2 >= 1 or pars[4]**2 + pars[5]**2 >= 1:
+				return -inf
+			return 0. 
+		def initialize_walkers(nwalk,p0):
+			return random.normal(size=(nwalk,ndim)) * array([0.1 * p0[0], 0.1 * p0[1], 0.005, 0.005, 0.005, 0.005]) + p0
+
+	else:
+#---------------------------
+# Set-up without mass as a parameter
+#---------------------------
+		ndim = 4
+		def fit(x):
+			return ft.fitness(x,firstOrder=firstFlag)[0]
+		def logp(pars):
+			if pars[0]**2 + pars[1]**2 >= 1 or pars[2]**2 + pars[3]**2 >= 1:
+				return -inf
+			return 0.0
+		def initialize_walkers(nwalk,p0):
+			return random.normal(size=(nwalk,ndim)) * 0.005 * ones(4) + p0
+#---------------------------
+#---------------------------
+>>>>>>> NumericalLaplaceCoeff
 
 	means=[]
 	p = zeros((ntemps, nwalkers, ndim))
@@ -98,9 +153,9 @@ if __name__=="__main__":
 		means = list(mean(loadtxt('chain.00.dat.gz').reshape((-1, nwalkers, ndim)), axis=1))
 	else:
 		# Initialize chains
-		p = [initialize_walkers(nwalkers,p0)]
+		p = [initialize_walkers(nwalkers,pars0)]
       		for temp in range(ntemps-1):
-            		p.append(initialize_walkers(nwalkers,p0))
+            		p.append(initialize_walkers(nwalkers,pars0))
 
 	# initialize sampler
 	sampler = emcee.PTSampler(ntemps,nwalkers,ndim,fit,logp,threads=nthreads)
@@ -121,6 +176,8 @@ if __name__=="__main__":
 #------------------------------------------------
 
 	while True:
+		if args.noloop:
+			break
 		for p,lnpost,lnlike in sampler.sample(p,lnprob0=lnpost, lnlike0=lnlike, iterations=nthin, storechain = False):
 			pass	
 
