@@ -26,9 +26,16 @@ def b(alpha,s,j,p):
 	assert type(p) == int, "Laplace coefficient must have integer p value"
 	return deriv(lambda x:b0(x,s,j),alpha,p)
 def f(alpha,j):
-	return -j*b(alpha,0.5,j,0) - 0.5 * alpha * b(alpha,0.5,j,1) 
+	ret= -j*b(alpha,0.5,j,0) - 0.5 * alpha * b(alpha,0.5,j,1) 
+	if j==1:
+		ret+= 1.5 * alpha
+	return ret
 def df(alpha,j):
-	return -j*b(alpha,0.5,j,1) - 0.5 * b(alpha,0.5,j,1) - 0.5 * alpha * b(alpha,0.5,j,2)
+	#direct =  -j*b(alpha,0.5,j,1) - 0.5 * b(alpha,0.5,j,1) - 0.5 * alpha * b(alpha,0.5,j,2)
+	#if j==1:
+	#	return direct + 1.5
+	return deriv(lambda x: f(x,j),alpha,1)
+
 def f1(alpha,j,perturber="External"):
 	direct = (-0.5+j)*b(alpha,0.5,j-1,0) + 0.5 * alpha * b(alpha,0.5,j-1,1)
 	if j==2: 
@@ -41,16 +48,17 @@ def f1(alpha,j,perturber="External"):
 	else:
 		return direct
 def df1(alpha,j,perturber="External"):
-	direct = (-0.5+j)*b(alpha,0.5,j-1,1) + 0.5 * alpha * b(alpha,0.5,j-1,2) +0.5 * b(alpha,0.5,j-1,1)
-	if j==2: 
-		if perturber=="External":
-			return direct - 2.
-		elif perturber == "Internal":
-			return direct + alpha**(-3.)
-		else:
-			raise Exception("Invalid perturber type!")
-	else:
-		return direct
+	#direct = (-0.5+j)*b(alpha,0.5,j-1,1) + 0.5 * alpha * b(alpha,0.5,j-1,2) +0.5 * b(alpha,0.5,j-1,1)
+	return deriv( lambda x: f1(x,j,perturber=perturber), alpha, 1)
+#	if j==2: 
+#		if perturber=="External":
+#			return direct - 2.
+#		elif perturber == "Internal":
+#			return direct + alpha**(-3.)
+#		else:
+#			raise Exception("Invalid perturber type!")
+#	else:
+#		return direct
 def k(alpha,j):
 	direct = 0.5 * b(alpha,0.5,j,0)
 	if j==1:
@@ -58,22 +66,24 @@ def k(alpha,j):
 	else:
 		return direct
 def dk(alpha,j):
-	direct = 0.5 * b(alpha,0.5,j,1)
-	if j==1:
-		return direct - 0.5 
-	else:
-		return direct
+	return deriv( lambda x: k(x,j), alpha, 1)
+	#direct = 0.5 * b(alpha,0.5,j,1)
+	#if j==1:
+	#	return direct - 0.5 
+	#else:
+	#	return direct
 def k1(alpha,j):
 	direct =  0.5 * b(alpha,0.5,j,0)
 	if j==1:
 		return direct - 0.5 / (alpha**2)
 	else: return direct
 def dk1(alpha,j):
-	direct =  0.5 * b(alpha,0.5,j,1)
-	if j==1:
-		return direct + 1.0 / (alpha**3)
-	else:
-		return direct
+	return deriv( lambda x: k1(x,j), alpha, 1)
+#	direct =  0.5 * b(alpha,0.5,j,1)
+#	if j==1:
+#		return direct + 1.0 / (alpha**3)
+#	else:
+#		return direct
 def g(alpha,j):
 	term1 = (0.5*j**2 - j*5./8.) * b(alpha,0.5,j,0)
 	term2 = (-0.25 + 0.5 * j) * alpha * b(alpha,0.5,j,1) 
@@ -103,22 +113,22 @@ def h(alpha,j):
 #########################################################
 def get_f_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ f(alpha,j) for j in arange(2,6)])
+	return array( [ f(alpha,j) for j in arange(1,6)])
 def get_f1Int_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ f1(alpha,j,perturber="Internal") for j in arange(2,6)])
+	return array( [ f1(alpha,j,perturber="Internal") for j in arange(1,6)])
 def get_f1Ext_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ f1(alpha,j,perturber="External") for j in arange(2,6)])
+	return array( [ f1(alpha,j,perturber="External") for j in arange(1,6)])
 def get_df_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ df(alpha,j) for j in arange(2,6)])
+	return array( [ df(alpha,j) for j in arange(1,6)])
 def get_df1Int_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ df1(alpha,j,perturber="Internal") for j in arange(2,6)])
+	return array( [ df1(alpha,j,perturber="Internal") for j in arange(1,6)])
 def get_df1Ext_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ df1(alpha,j,perturber="External") for j in arange(2,6)])
+	return array( [ df1(alpha,j,perturber="External") for j in arange(1,6)])
 def get_k_array(pratio):
 	alpha = pratio**(-2./3.)
 	return array( [ k(alpha,j) for j in arange(1,6)])
