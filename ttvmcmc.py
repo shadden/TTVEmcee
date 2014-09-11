@@ -48,8 +48,6 @@ if __name__=="__main__":
 # See: https://github.com/farr/nu-ligo-utils/tree/master/ensemble-sampler : run.py
 #
 #----------------------------------------------------------------------------------
-	input_data = loadtxt("./inner.ttv")
-	input_data1= loadtxt("./outer.ttv")
 
 	parser = ArgumentParser(description='run an ensemble MCMC analysis of a pair of TTVs')
 	parser.add_argument('--restart', default=False, action='store_true', help='continue a previously-existing run')
@@ -63,6 +61,21 @@ if __name__=="__main__":
 	parser.add_argument('-f','--first_order', default=False, action='store_true', help='only compute first-order TTV contribution')
 	parser.add_argument('--noloop', default=False, action='store_true', help='Run set-up but do not excecute the MCMC main loop')
 
+	input_data = loadtxt("./inner.ttv")
+	input_data1= loadtxt("./outer.ttv")
+	
+	input_dataTR,input_data1TR = TrimData(input_data,input_data1,tol=2.5)
+	if len(input_dataTR) != len(input_data):
+		print "Removed %d transit(s) from inner planet:" %( len(input_data) - len(input_dataTR) )
+		for bad in set(input_data[:,0]).difference( set(input_dataTR[:,0]) ):
+			print "\t%d"%bad
+		input_data = input_dataTR
+	if len(input_data1TR) != len(input_data1):
+		print "Removed %d transits from outer planet:" %( len(input_data1) - len(input_data1TR) )
+		for bad in set(input_data1[:,0]).difference( set(input_data1TR[:,0]) ):
+			print "\t%d"%bad
+		input_data1 = input_data1TR
+
 	args = parser.parse_args()
 	restart = args.restart
 	nensembles=args.nensembles
@@ -72,6 +85,7 @@ if __name__=="__main__":
 	nthreads=args.nthreads
 	firstFlag = args.first_order
 	
+	print "Running with %d parallel threads" % nthreads
 	# get fitness object
 #--------------------------
 	ft = fitness(input_data,input_data1)
@@ -113,7 +127,7 @@ if __name__=="__main__":
 				return -inf
 			return 0.0
 		def initialize_walkers(nwalk,p0):
-			return random.normal(size=(nwalk,ndim)) * 0.005 * ones(4) + p0
+			return random.normal(size=(nwalk,ndim)) * 0.005 * ones(4) + p0[-4:]
 #---------------------------
 #---------------------------
 
@@ -133,7 +147,7 @@ if __name__=="__main__":
 	# initialize sampler
 	sampler = emcee.PTSampler(ntemps,nwalkers,ndim,fit,logp,threads=nthreads)
 	Ts = 1.0/sampler.betas
-	if not restart:
+	if not restart and not args.noloop:
 		write_headers(Ts)
 	print "Beggining ensemble evolution"
 	print

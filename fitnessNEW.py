@@ -1,6 +1,8 @@
 from numpy import *
+
 import LaplaceCoefficients as LC
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 #---------------------------------------------------
 # miscellaneous
 #---------------------------------------------------
@@ -41,6 +43,46 @@ def fullPeriodFit(trdata1,trdata2,precision=1.e-5,itermin=2,itermax = 10):
 		print iter,p,p1
 
 	return [p,p1,t0,t01]
+
+def fullPeriodFit2(trdata1,trdata2):
+	n,t =  trdata1.T[:2]
+	n1,t1 = trdata2.T[:2]
+	per0,per10 = map( lambda x: linearfit(x[0],x[1])[1], [[n,t],[n1,t1]] )
+	mdl = lambda x,p,t0,a,b,w: x * p + t0 + a * sin(w * x*p) + b * cos(w * x*p)
+	j =2 +argmin([abs((j-1)*per10 / ( j*per0 ) - 1.) for j in range(2,5)])
+	w0 = 2. * pi * ( j / per10 - (j-1) / per0 )
+	popt, pcov = curve_fit(mdl, n, t, p0=[per0,t[0], 0.05,0.05,w0] )
+	popt1, pcov1 = curve_fit(mdl, n1, t1, p0=[per10,t1[0], 0.05, 0.05,w0] )
+
+	return popt[0],popt[1], popt1[0], popt1[1]
+
+def TrimData(trdata1,trdata2,tol=3.5):
+	per,t0,per1,t10 = fullPeriodFit2(trdata1,trdata2)
+	
+	rms = sqrt( var(trdata1[:,1] - per * trdata1[:,0] - t0 ) )
+	rms1 = sqrt( var(trdata2[:,1] - per1 * trdata2[:,0] - t10 ) )
+	
+	trim1 = array( [ x for x in trdata1 if abs( x[1] - x[0] *per -t0 ) < tol * rms ])
+	trim2 = array( [ x for x in trdata2 if abs( x[1] - x[0] *per1 -t10 ) < tol * rms1 ])
+	return trim1, trim2
+	
+def fullPeriodFit2plot(trdata1,trdata2):
+	n,t =  trdata1.T[:2]
+	n1,t1 = trdata2.T[:2]
+	per0,per10 = map( lambda x: linearfit(x[0],x[1])[1], [[n,t],[n1,t1]] )
+	mdl = lambda x,p,t0,a,b,w: x * p + t0 + a * sin(w * p * x) + b * cos(w * p * x)
+	j =2 +argmin([abs((j-1)*per10 / ( j*per0 ) - 1.) for j in range(2,5)])
+	w0 = 2. * pi * ( j / per10 - (j-1) / per0 )
+
+	popt, pcov = curve_fit(mdl, n, t, p0=[per0,t[0], 0.05, 0.05, w0 ] )
+	popt1, pcov1 = curve_fit(mdl, n1, t1, p0=[per10,t1[0], 0.05, 0.05, w0 ] )
+
+	plot(n,mdl(n,popt[0],popt[1],popt[2],popt[3],popt[4])- popt[0]*n -popt[1] )
+	plot(n,t - popt[0]*n - popt[1] )
+	plot(n1,mdl(n1,popt1[0],popt1[1],popt1[2],popt1[3],popt1[4])- popt1[0]*n1 -popt1[1] )
+	plot(n1,t1 - popt1[0]*n1 - popt1[1] )
+	show()
+
 def delta(pratio,j,k):
 	return pratio * k/j - 1.
 		
@@ -100,7 +142,7 @@ class fitness(object):
 #################
 # Orbital parameters
 #################
-		p,p1,t0,t10 = fullPeriodFit(input_data[:,:2],input_data1[:,:2],precision=1.e-6,itermax = 20)
+		p,t0,p1,t10 = fullPeriodFit2(input_data[:,:2],input_data1[:,:2])
 		self.T0 = t0
 		self.T10 = t10
 		self.p = p
@@ -364,7 +406,8 @@ class fitness(object):
 	def totalTTVs(self,L0,L10,ex,ey,ex1,ey1,minj=1,maxj=5):
 		
 		inDts,outDts = map(sum,transpose([ self.get_FirstOrd_ttvs( L0, L10, j, ex, ey, ex1, ey1 ) for j in arange(0,6) ]))
-		inDtsScnd,outDtsScnd = map(sum,transpose([ self.get_ScndOrder_ttvs(L0,L10,j,ex,ey,ex1,ey1) for j in arange(3,8)]))
+		#inDtsScnd,outDtsScnd = map(sum,transpose([ self.get_ScndOrder_ttvs(L0,L10,j,ex,ey,ex1,ey1) for j in arange(3,8)]))
+		inDtsScnd,outDtsScnd =  self.get_ScndOrder_ttvs(L0,L10,2*self.j,ex,ey,ex1,ey1) 
 		inDtsO2O,outDtsO2O = map(sum,transpose([self.get_One2One_ttvs(L0,L10,j) for j in arange(minj,maxj+1)]))
 		return inDts + inDtsScnd + inDtsO2O, outDts + outDtsScnd + outDtsO2O 	
 
@@ -504,6 +547,18 @@ class fitness(object):
 		for i in range(1,6):
 			lx,ly = self.dlO2O(i)
 			print "%d / %d \t %.3f  \t %.3f + i*%.3f" % (i,i,0.,lx,ly)
+		print "Outer Planet"
+		print "res.\tdz\tdl"
+		for i in range(1,6):
+			lx,ly = self.dl1(i,ex,ey,ex1,ey1)
+			print "%d / %d \t %.3f \t %.3f + i*%.3f" % (i,i-1,self.dz1(i) ,lx,ly )
+		for i in range(3,8):
+			lx,ly = self.dl1Scnd(i,ex,ey,ex1,ey1)
+			zx,zy = self.dz1Scnd(i,ex,ey,ex1,ey1)
+			print "%d / %d \t %.3f+i*%.3f \t %.3f + i*%.3f" % (i,i-2,zx,zy,lx,ly )
+		for i in range(1,6):
+			lx,ly = self.dl1O2O(i)
+			print "%d / %d \t %.3f  \t %.3f + i*%.3f" % (i,i,0.,lx,ly)
 	########################################################################################
 	########################################################################################
 	########################################################################################
@@ -526,6 +581,7 @@ evals = random.normal(0,0.1,size=4)"""
 		print "100 executions of fitness,first-order only, in %g seconds" % exectimeFO
 		exectime = timeit.timeit('ft.fitness(evals)',setup=s,number=100)
 		print "100 executions of fitness in %g seconds" % exectime
+	
 	########################################################################################
 	########################################################################################
 	########################################################################################
