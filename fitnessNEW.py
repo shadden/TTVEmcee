@@ -410,17 +410,24 @@ class fitness(object):
 		inDtsScnd,outDtsScnd =  self.get_ScndOrder_ttvs(L0,L10,2*self.j,ex,ey,ex1,ey1) 
 		inDtsO2O,outDtsO2O = map(sum,transpose([self.get_One2One_ttvs(L0,L10,j) for j in arange(minj,maxj+1)]))
 		return inDts + inDtsScnd + inDtsO2O, outDts + outDtsScnd + outDtsO2O 	
+	
+	def selectTTVs(self,L0,L10,ex,ey,ex1,ey1,fo,so,oo):
+		
+		inDts,outDts = map(sum,transpose([ self.get_FirstOrd_ttvs( L0, L10, j, ex, ey, ex1, ey1 ) for j in fo ]))
+		inDtsScnd,outDtsScnd = map(sum,transpose([ self.get_ScndOrder_ttvs(L0,L10,j,ex,ey,ex1,ey1) for j in so]))
+		inDtsO2O,outDtsO2O = map(sum,transpose([self.get_One2One_ttvs(L0,L10,j) for j in oo ]))
+		return inDts + inDtsScnd + inDtsO2O, outDts + outDtsScnd + outDtsO2O 	
 
 	def get_ttvs(self,ex,ey,ex1,ey1,firstOrder=False):
 		#
 		transits = self.transits
 		transits1 = self.transits
 		th0 = 2*pi*(-1.*self.T0)/self.p
-		theta0 = th0 + 2 * ex * sin( th0 ) + 2 * ey *(1. - cos( th0 ) )
+		#theta0 = th0 + 2 * ex * sin( th0 ) + 2 * ey *(1. - cos( th0 ) )
 		th10 = 2*pi*(-1.*self.T10)/self.p1
-		theta10 = th10 + 2 * ex1 * sin( th10 ) + 2 * ey1 *( 1. -  cos( th10 ))
-		L0 =  theta0  + 2 * ( ey * cos(theta0) - ex * sin(theta0) ) 
-		L10 = theta10 + 2 * ( ey1 * cos(theta10) - ex1 * sin(theta10) ) # 2.5 #
+		#theta10 = th10 + 2 * ex1 * sin( th10 ) + 2 * ey1 *( 1. -  cos( th10 ))
+		L0 =  th0  + 2 * ( ey  ) 
+		L10 = th10 + 2 * ( ey1 ) # 2.5 #
 #		
 		j = self.j
 		if firstOrder:
@@ -428,6 +435,19 @@ class fitness(object):
 		else:
 			dt,dt1 = self.totalTTVs(L0,L10,ex,ey,ex1,ey1)
 		
+		return  dt , dt1 
+
+	def select_ttvs(self,ex,ey,ex1,ey1,fo,so,oo):
+		#
+		transits = self.transits
+		transits1 = self.transits
+		th0 = 2*pi*(-1.*self.T0)/self.p
+		th10 = 2*pi*(-1.*self.T10)/self.p1
+
+		L0 =  th0  + 2 * ( ey  ) 
+		L10 = th10 + 2 * ( ey1 ) # 2.5 #
+#		
+		dt,dt1 = self.selectTTVs(L0,L10,ex,ey,ex1,ey1,fo,so,oo)
 		return  dt , dt1 
 				
 	def fitness(self,pars,firstOrder=False):
@@ -496,19 +516,35 @@ class fitness(object):
 		## Figure 1 ##
 		plt.figure()
 		plt.subplot(211)
+		plt.plot(pl0tr, pl0tr - self.p*N - self.T0,'ks')
+		plt.plot(pl0tr  ,  AnalyticTTVs[0] * m1 ,'kx') 
+		plt.subplot(212)
+		plt.plot(pl1tr , pl1tr - self.p1*N1 - self.T10 ,'rs')
+		plt.plot(pl1tr ,   AnalyticTTVs[1] * m  ,'rx') 
+		plt.show()
+#		#---------------------------------------------
+	def selectplot(self,pars,fo,so,oo):
+		
+		m,m1,ex,ey,ex1,ey1 = pars
+	
+		AnalyticTTVs = self.select_ttvs(ex,ey,ex1,ey1,fo,so,oo)
+#		#
+		pl0tr = self.transits
+		pl1tr = self.transits1
+		N = self.trN
+		N1 = self.trN1
+		errs,errs1 = self.input_data[:,2],self.input_data1[:,2]
+#		#
+		## Figure 1 ##
+		plt.figure()
+		plt.subplot(211)
 		plt.plot(pl0tr, pl0tr - self.p*N - self.T0,'k-')
 		plt.plot(pl0tr  ,  AnalyticTTVs[0] * m1 ,'k--') 
 		plt.subplot(212)
 		plt.plot(pl1tr , pl1tr - self.p1*N1 - self.T10 ,'r-')
 		plt.plot(pl1tr ,   AnalyticTTVs[1] * m  ,'r--') 
 		plt.show()
-		## Figure 2 ##
-		#plt.figure()
-		#plt.plot(pl0tr, time_to_ttv(N,pl0tr) ,'k-')
-		#plt.plot(pl0tr  ,  time_to_ttv(N,AnalyticTTVs[0] * m1) ,'k--') 
-		#plt.plot(pl1tr , time_to_ttv(N1,pl1tr)  ,'r-')
-		#plt.plot(pl1tr , time_to_ttv( N1, AnalyticTTVs[1] * m ) ,'r--') 
-		#plt.show()
+
 #		#---------------------------------------------
 	def ttvplot(self):
 #		#
@@ -525,11 +561,9 @@ class fitness(object):
 	def SummaryTable(self,pars):
 		m,m1,ex,ey,ex1,ey1 = pars
 		th0 = 2*pi*(-1.*self.T0)/self.p
-		theta0 = th0 + 2 * ex * sin( th0 ) + 2 * ey *(1. - cos( th0 ) )
 		th10 = 2*pi*(-1.*self.T10)/self.p1
-		theta10 = th10 + 2 * ex1 * sin( th10 ) + 2 * ey1 *( 1. -  cos( th10 ))
-		L0 =  theta0  + 2 * ( ey * cos(theta0) - ex * sin(theta0) ) 
-		L10 = theta10 + 2 * ( ey1 * cos(theta10) - ex1 * sin(theta10) ) # 2.5 #
+		L0 =  th0  + 2 * ( ey  ) 
+		L10 = th10 + 2 * ( ey1 ) 
 ##
 ##
 		print "P: %.6f \t P1: %.6f " % (self.p,self.p1)
