@@ -1,5 +1,6 @@
 import sys
-sys.path.insert(0, '/projects/b1002/shadden/7_AnalyticTTV/01_MCMC/00_source_code')
+sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
+#sys.path.insert(0, '/projects/b1002/shadden/7_AnalyticTTV/01_MCMC/00_source_code')
 import fitnessNEW as fff
 import triangle
 from argparse import ArgumentParser
@@ -23,7 +24,7 @@ if j==3:
 elif j==2:
 	fCoeff = -1.19049
 	f1Coeff = 0.42839 
-m,m1,ex,ex1,ey,ey1 = data.T
+m,m1,ex,ey,ex1,ey1 = data.T
 
 bestpars = data[argmax(lnlike.reshape((-1,)))]
 truepars = loadtxt("TrueParams.txt")
@@ -40,7 +41,7 @@ def Zfn(exx,eyy,exx1,eyy1):
 	Zyy = fCoeff * eyy + f1Coeff * eyy1
 	#
 	Vxx = fCoeff  +   1.5 * Zxx / (delta)
-	Vyy =  -1.5 * Zyy / (delta)
+	Vyy =  1.5 * Zyy / (delta)
 	#
 	return (Zxx,Zyy,sqrt(Zxx**2+Zyy**2),arctan2(Vyy,Vxx) )
 
