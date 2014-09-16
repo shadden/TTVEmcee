@@ -93,7 +93,7 @@ def fullPeriodFit2plot(trdata1,trdata2,resids=False,planets=3):
 		plot(n,t - popt[0]*n - popt[1] )
 		plot(n1,mdl(n1,popt1[0],popt1[1],popt1[2],popt1[3],popt1[4])- popt1[0]*n1 -popt1[1] )
 		plot(n1,t1 - popt1[0]*n1 - popt1[1] )
-	show()
+	plt.show()
 def delta(pratio,j,k):
 	return pratio * k/j - 1.
 		
@@ -514,9 +514,10 @@ class fitness(object):
 ##############################################################
 	def fitplot(self,pars):
 		
-		m,m1,ex,ey,ex1,ey1 = pars
-	
-		AnalyticTTVs = self.get_ttvs(ex,ey,ex1,ey1)
+		AnalyticTTVs = []
+		for parset in pars:
+			m,m1,ex,ey,ex1,ey1 = parset
+			AnalyticTTVs.append( self.get_ttvs(ex,ey,ex1,ey1) )
 #		#
 		pl0tr = self.transits
 		pl1tr = self.transits1
@@ -524,37 +525,44 @@ class fitness(object):
 		N1 = self.trN1
 		errs,errs1 = self.input_data[:,2],self.input_data1[:,2]
 #		#
+		symbols = ['x','o','d']
 		## Figure 1 ##
 		plt.figure()
 		plt.subplot(211)
 		plt.errorbar(pl0tr, pl0tr - self.p*N - self.T0,yerr=errs,fmt='ks')
-		plt.plot(pl0tr  ,  AnalyticTTVs[0] * m1 ,'kx') 
+		for i,ttvs in enumerate(AnalyticTTVs):
+			plt.plot(pl0tr , ttvs[0] * m1 ,'k%s'% symbols[i%len(symbols)] ) 
 		plt.subplot(212)
 		plt.errorbar(pl1tr , pl1tr - self.p1*N1 - self.T10 ,yerr=errs1,fmt='rs')
-		plt.plot(pl1tr ,   AnalyticTTVs[1] * m  ,'rx') 
+		for i,ttvs in enumerate(AnalyticTTVs):
+			plt.plot(pl1tr , ttvs[1] * m  ,'r%s'% symbols[i%len(symbols)] ) 
 		plt.show()
 #		#---------------------------------------------
 	def residfitplot(self,pars):
 		
-		m,m1,ex,ey,ex1,ey1 = pars
 		fo = array([k for k in arange(0,6) if k!= self.j])
 		oo = arange(1,6)
 		so = [2 * self.j]
-		AnalyticTTVs = self.select_ttvs(ex,ey,ex1,ey1,fo,so,oo)
+		AnalyticTTVs = []
+		for parset in pars:
+			m,m1,ex,ey,ex1,ey1 = parset
+			AnalyticTTVs.append( self.select_ttvs(ex,ey,ex1,ey1,fo,so,oo) )
 #		#
 		pl0tr = self.transits
 		pl1tr = self.transits1
 #		#
+		symbols = ['x','o','d']
 		## Figure 1 ##
 		plt.figure()
 		plt.subplot(211)
 		fullPeriodFit2plot(self.input_data,self.input_data1,resids=True,planets=1)
-		plt.plot(pl0tr  ,  AnalyticTTVs[0] * m1 ,'kx') 
+		for i,ttvs in enumerate(AnalyticTTVs):
+			plt.plot(pl0tr , ttvs[0] * m1 ,'k%s'% symbols[i%len(symbols)] ) 
 
 		plt.subplot(212)
 		fullPeriodFit2plot(self.input_data,self.input_data1,resids=True,planets=2)
-		plt.plot(pl1tr ,   AnalyticTTVs[1] * m  ,'rx') 
-
+		for i,ttvs in enumerate(AnalyticTTVs):
+			plt.plot(pl1tr , ttvs[1] * m  ,'r%s'% symbols[i%len(symbols)] ) 
 		plt.show()
 #		#---------------------------------------------
 	def selectplot(self,pars,fo,so,oo,planets=3):
