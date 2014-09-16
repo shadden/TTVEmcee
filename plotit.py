@@ -58,7 +58,11 @@ input_data1 = loadtxt("./outer.ttv")
 ft = fff.fitness(input_data,input_data1)
 
 ft.fitplot(bestpars)
+subplot(211)
+title("best params, lnlike: %.3f" % ft.fitness2(bestpars))
 savefig('best_fit.png')
 
 ft.fitplot(truepars)
-savefit('true_fit.png')
+subplot(211)
+title("true params, lnlike: %.3f" % ft.fitness2(truepars))
+savefig('true_fit.png')

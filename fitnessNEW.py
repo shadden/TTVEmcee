@@ -516,10 +516,10 @@ class fitness(object):
 		## Figure 1 ##
 		plt.figure()
 		plt.subplot(211)
-		plt.plot(pl0tr, pl0tr - self.p*N - self.T0,'ks')
+		plt.errorbar(pl0tr, pl0tr - self.p*N - self.T0,yerr=errs,fmt='ks')
 		plt.plot(pl0tr  ,  AnalyticTTVs[0] * m1 ,'kx') 
 		plt.subplot(212)
-		plt.plot(pl1tr , pl1tr - self.p1*N1 - self.T10 ,'rs')
+		plt.errorbar(pl1tr , pl1tr - self.p1*N1 - self.T10 ,yerr=errs1,fmt='rs')
 		plt.plot(pl1tr ,   AnalyticTTVs[1] * m  ,'rx') 
 		plt.show()
 #		#---------------------------------------------
