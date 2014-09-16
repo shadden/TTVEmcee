@@ -107,7 +107,7 @@ if __name__=="__main__":
 		def fit(x):
 			return ft.fitness2(x,firstOrder=firstFlag)
 		def logp(pars):
-			if pars[0] < 0. or pars[1] < [0]:
+			if pars[0] < 0. or pars[1] < 0.:
 				return -inf
 			if pars[2]**2 + pars[3]**2 >= 1 or pars[4]**2 + pars[5]**2 >= 1:
 				return -inf
