@@ -47,8 +47,17 @@ show()
 savefig('parameters_corner.png')
 
 figure()
-for walker in lnlike.reshape(-1,200).T:
-	plot(walker)
+panels = []
+for fignum in range(6):
+	panels.append( subplot(321+fignum) )
+	ylabel(lbls[fignum])
+
+parameter_chains = data2.reshape(-1,nwalkers,6)
+lnlike_chains = lnlike.reshape(-1,nwalkers).T
+for walkerN in range(len(lnlike)/nwalkers):
+	#panel1.plot( lnlike_chains[walkerN])
+	for fignum in range(6):
+		panels[fignum].plot( parameter_chains[:,walkerN,fignum] )
 show()
 savefig('chains_plot.png')
 
@@ -66,3 +75,14 @@ ft.fitplot(truepars)
 subplot(211)
 title("true params, lnlike: %.3f" % ft.fitness2(truepars))
 savefig('true_fit.png')
+
+
+ft.residfitplot(bestpars)
+subplot(211)
+title("best params, lnlike: %.3f" % ft.fitness2(bestpars))
+savefig('best_fit_resid.png')
+
+ft.residfitplot(truepars)
+subplot(211)
+title("true params, lnlike: %.3f" % ft.fitness2(truepars))
+savefig('true_fit_resid.png')

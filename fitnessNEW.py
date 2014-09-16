@@ -66,7 +66,9 @@ def TrimData(trdata1,trdata2,tol=3.5):
 	trim2 = array( [ x for x in trdata2 if abs( x[1] - x[0] *per1 -t10 ) < tol * rms1 ])
 	return trim1, trim2
 	
-def fullPeriodFit2plot(trdata1,trdata2):
+def fullPeriodFit2plot(trdata1,trdata2,resids=False,planets=3):
+	"""If the option 'resids' is specified, plot the redisuals of the model fitting procedure.  
+	Otherwise show the TTVs plus the best-fit sinusoidal model"""
 	n,t =  trdata1.T[:2]
 	n1,t1 = trdata2.T[:2]
 	per0,per10 = map( lambda x: linearfit(x[0],x[1])[1], [[n,t],[n1,t1]] )
@@ -76,13 +78,22 @@ def fullPeriodFit2plot(trdata1,trdata2):
 
 	popt, pcov = curve_fit(mdl, n, t, p0=[per0,t[0], 0.05, 0.05, w0 ] )
 	popt1, pcov1 = curve_fit(mdl, n1, t1, p0=[per10,t1[0], 0.05, 0.05, w0 ] )
-
-	plot(n,mdl(n,popt[0],popt[1],popt[2],popt[3],popt[4])- popt[0]*n -popt[1] )
-	plot(n,t - popt[0]*n - popt[1] )
-	plot(n1,mdl(n1,popt1[0],popt1[1],popt1[2],popt1[3],popt1[4])- popt1[0]*n1 -popt1[1] )
-	plot(n1,t1 - popt1[0]*n1 - popt1[1] )
+	if resids:
+		errs,errs1 = trdata1[:,2],trdata2[:,2]
+		if planets==1:
+			plt.errorbar(t,t - mdl(n,popt[0],popt[1],popt[2],popt[3],popt[4]),yerr=errs,fmt='ks')
+		elif planets==2:
+			plt.errorbar(t1,t1 - mdl(n1,popt1[0],popt1[1],popt1[2],popt1[3],popt1[4]) ,yerr = errs1,fmt='rs')
+		else:
+			plt.errorbar(t,t - mdl(n,popt[0],popt[1],popt[2],popt[3],popt[4]),yerr=errs,fmt='ks')
+			plt.errorbar(t1,t1 - mdl(n1,popt1[0],popt1[1],popt1[2],popt1[3],popt1[4]) ,yerr = errs1,fmt='rs')
+	
+	else:
+		plot(n,mdl(n,popt[0],popt[1],popt[2],popt[3],popt[4])- popt[0]*n -popt[1] )
+		plot(n,t - popt[0]*n - popt[1] )
+		plot(n1,mdl(n1,popt1[0],popt1[1],popt1[2],popt1[3],popt1[4])- popt1[0]*n1 -popt1[1] )
+		plot(n1,t1 - popt1[0]*n1 - popt1[1] )
 	show()
-
 def delta(pratio,j,k):
 	return pratio * k/j - 1.
 		
@@ -523,8 +534,31 @@ class fitness(object):
 		plt.plot(pl1tr ,   AnalyticTTVs[1] * m  ,'rx') 
 		plt.show()
 #		#---------------------------------------------
-	def selectplot(self,pars,fo,so,oo):
+	def residfitplot(self,pars):
 		
+		m,m1,ex,ey,ex1,ey1 = pars
+		fo = array([k for k in arange(0,6) if k!= self.j])
+		oo = arange(1,6)
+		so = [2 * self.j]
+		AnalyticTTVs = self.select_ttvs(ex,ey,ex1,ey1,fo,so,oo)
+#		#
+		pl0tr = self.transits
+		pl1tr = self.transits1
+#		#
+		## Figure 1 ##
+		plt.figure()
+		plt.subplot(211)
+		fullPeriodFit2plot(self.input_data,self.input_data1,resids=True,planets=1)
+		plt.plot(pl0tr  ,  AnalyticTTVs[0] * m1 ,'kx') 
+
+		plt.subplot(212)
+		fullPeriodFit2plot(self.input_data,self.input_data1,resids=True,planets=2)
+		plt.plot(pl1tr ,   AnalyticTTVs[1] * m  ,'rx') 
+
+		plt.show()
+#		#---------------------------------------------
+	def selectplot(self,pars,fo,so,oo,planets=3):
+		""" planets option: 1 - inner, 2 - outer, other - both """	
 		m,m1,ex,ey,ex1,ey1 = pars
 	
 		AnalyticTTVs = self.select_ttvs(ex,ey,ex1,ey1,fo,so,oo)
@@ -533,17 +567,15 @@ class fitness(object):
 		pl1tr = self.transits1
 		N = self.trN
 		N1 = self.trN1
-		errs,errs1 = self.input_data[:,2],self.input_data1[:,2]
 #		#
-		## Figure 1 ##
-		plt.figure()
-		plt.subplot(211)
-		plt.plot(pl0tr, pl0tr - self.p*N - self.T0,'k-')
-		plt.plot(pl0tr  ,  AnalyticTTVs[0] * m1 ,'k--') 
-		plt.subplot(212)
-		plt.plot(pl1tr , pl1tr - self.p1*N1 - self.T10 ,'r-')
-		plt.plot(pl1tr ,   AnalyticTTVs[1] * m  ,'r--') 
-		plt.show()
+		if planets ==1:
+			plt.plot(pl0tr  ,  AnalyticTTVs[0] * m1 ,'k--') 
+		elif planets==2:
+			plt.plot(pl1tr ,   AnalyticTTVs[1] * m  ,'r--') 
+		else:
+			plt.plot(pl0tr  ,  AnalyticTTVs[0] * m1 ,'k--') 
+			plt.plot(pl1tr ,   AnalyticTTVs[1] * m  ,'r--') 
+		#plt.show()
 
 #		#---------------------------------------------
 	def ttvplot(self):
