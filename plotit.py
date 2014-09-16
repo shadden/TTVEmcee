@@ -24,16 +24,25 @@ elif j==2:
 	fCoeff = -1.19049
 	f1Coeff = 0.42839 
 m,m1,ex,ex1,ey,ey1 = data.T
+
 bestpars = data[argmax(lnlike.reshape((-1,)))]
 truepars = loadtxt("TrueParams.txt")
+input_data=loadtxt("./inner.ttv")
+input_data1 = loadtxt("./outer.ttv")
+	
+ft = fff.fitness(input_data,input_data1)
+j = ft.j
+delta = ft.pratio *(j-1.)/j - 1.
+fCoeff = ft.f[j-1]
+f1Coeff = ft.f1Int[j-1]	
 def Zfn(exx,eyy,exx1,eyy1):
-	Zx = fCoeff * exx + f1Coeff * exx1
-	Zy = fCoeff * eyy + f1Coeff * eyy1
+	Zxx = fCoeff * exx + f1Coeff * exx1
+	Zyy = fCoeff * eyy + f1Coeff * eyy1
 	#
-	Vx = fCoeff  +   1.5 * Zx / (delta)
-	Vy =  -1.5 * Zy / (delta)
+	Vxx = fCoeff  +   1.5 * Zxx / (delta)
+	Vyy =  -1.5 * Zyy / (delta)
 	#
-	return (Zx,Zy,sqrt(Zx**2+Zy**2),arctan2(Vy,Vx) )
+	return (Zxx,Zyy,sqrt(Zxx**2+Zyy**2),arctan2(Vyy,Vxx) )
 
 
 Zx,Zy,absZ,argV = Zfn(ex,ey,ex1,ey1)
@@ -72,11 +81,6 @@ if args.plot:
 			panels[fignum].plot( parameter_chains[:,walkerN,fignum] )
 	show()
 	savefig('chains_plot.png')
-	
-	
-	input_data=loadtxt("./inner.ttv")
-	input_data1 = loadtxt("./outer.ttv")
-	ft = fff.fitness(input_data,input_data1)
 	
 	ft.fitplot([truepars,bestpars])
 	subplot(211)
