@@ -1,13 +1,26 @@
 import sys
-sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
-#sys.path.insert(0, '/projects/b1002/shadden/7_AnalyticTTV/01_MCMC/00_source_code')
+#sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
+sys.path.insert(0, '/projects/b1002/shadden/7_AnalyticTTV/01_MCMC/00_source_code')
 import fitnessNEW as fff
 import triangle
 from argparse import ArgumentParser
 parser =  ArgumentParser(description='Postprocessing for mcmc runs') 
 parser.add_argument('--plot', default=False, action='store_true', help='Run plotting routines') 
+parser.add_argument('--parsplot', default=False, action='store_true', help='plot paramater corner') 
+parser.add_argument('--zplot', default=False, action='store_true', help='plot Z corner') 
+parser.add_argument('--chainplot', default=False, action='store_true', help='plot walker chains') 
+parser.add_argument('--bestplot', default=False, action='store_true', help='plot TTVs from best-fit and true parameters') 
 args = parser.parse_args()
 
+parsplot = args.parsplot
+zplot = args.zplot
+chainplot = args.chainplot
+bestplot = args.bestplot
+if args.plot:
+	parsplot = True
+	zplot = True
+	chainplot = True
+	bestplot = True
 
 
 nwalkers = 200
@@ -52,8 +65,9 @@ Zxtrue,Zytrue,absZtrue,argVtrue=Zfn(truepars[2],truepars[3],truepars[4],truepars
 data2 = array([log10(data[:,0]),log10(data[:,1]),data[:,2],data[:,3],data[:,4],data[:,5]]).T
 data3 = array([log10(data[:,0]),log10(data[:,1]),Zx,Zy,arctan2(Zy,Zx),absZ,argV]).T
 
-if args.plot:
-	elims = (-0.2,0.2)
+if parsplot:
+	#elims = (-1,1)
+	elims = (-3*absZtrue,3*absZtrue)
 	extnts = [1.,1.,elims,elims,elims,elims]
 	true_vals = truepars.copy()
 	true_vals[:2] = log10(true_vals[:2])
@@ -61,13 +75,14 @@ if args.plot:
 	triangle.corner(data2,extents=extnts,labels=lbls,truths=true_vals)
 	show()
 	savefig('parameters_corner.png')
-	
+if zplot:	
 	lbls3 = ['logM','logM1','Zx','Zy','arg Z','|Z|','arg V']
 	truths3= array([true_vals[0],true_vals[1],Zxtrue,Zytrue,arctan2(Zytrue,Zxtrue),absZtrue,argVtrue])
-	triangle.corner(data3,labels=lbls3,truths=truths3)
+	zxtnts = (-3*absZtrue,3*absZtrue)
+	triangle.corner(data3,labels=lbls3,truths=truths3,extents=[(-6,-4),(-6,-4),zxtnts,zxtnts,(-pi,pi),(0,3*absZtrue),(-pi,pi)])
 	show()
 	savefig('mass-vs-Z_corner.png')
-	
+if chainplot:	
 	figure()
 	panels = []
 	for fignum in range(6):
@@ -76,13 +91,13 @@ if args.plot:
 	
 	parameter_chains = data2.reshape(-1,nwalkers,6)
 	lnlike_chains = lnlike.reshape(-1,nwalkers).T
-	for walkerN in range(len(lnlike)/nwalkers):
+	for walkerN in range(nwalkers):
 		#panel1.plot( lnlike_chains[walkerN])
 		for fignum in range(6):
 			panels[fignum].plot( parameter_chains[:,walkerN,fignum] )
 	show()
 	savefig('chains_plot.png')
-	
+if bestplot:	
 	ft.fitplot([truepars,bestpars])
 	subplot(211)
 	title(" lnlike: %.2f (%.2f)" % (ft.fitness2(bestpars),ft.fitness2(truepars)) )
