@@ -1,5 +1,8 @@
 from numpy import *
 
+import sys
+sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
+
 import LaplaceCoefficients as LC
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit

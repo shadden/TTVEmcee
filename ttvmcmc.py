@@ -1,4 +1,6 @@
 import sys
+sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
+
 import gzip
 import acor
 import multiprocessing as multi
@@ -52,6 +54,7 @@ if __name__=="__main__":
 	parser = ArgumentParser(description='run an ensemble MCMC analysis of a pair of TTVs')
 	parser.add_argument('--restart', default=False, action='store_true', help='continue a previously-existing run')
 	parser.add_argument('-n','--nensembles', metavar='N', type=int, default=100, help='number of ensembles to accumulate')
+	parser.add_argument('--nacor', metavar='N', type=int, default=5, help='Number of consecutive non-infinite autocorellation measurements required before exiting')
 	parser.add_argument('--nwalkers', metavar='N', type=int, default=100, help='number of walkers to use')
 	parser.add_argument('--ntemps', metavar='N', type=int, default=8, help='number different temperature scales to use')
 	parser.add_argument('--nthin', metavar='N', type=int, default=10, help='number of setps to take between each saved ensemble state')
@@ -60,7 +63,11 @@ if __name__=="__main__":
 	parser.add_argument('-P','--parfile', metavar='FILE', default=None, help='Text file containing parameter values to initialize walker around.')
 	parser.add_argument('-f','--first_order', default=False, action='store_true', help='only compute first-order TTV contribution')
 	parser.add_argument('--noloop', default=False, action='store_true', help='Run set-up but do not excecute the MCMC main loop')
-
+	
+	
+	# 
+	
+	#
 	input_data = loadtxt("./inner.ttv")
 	input_data1= loadtxt("./outer.ttv")
 	
@@ -157,7 +164,7 @@ if __name__=="__main__":
 	lnlike = None
 	old_best_lnlike = None
 	reset = False
-
+	Nmeasured = 0
 #------------------------------------------------
 # MAIN LOOP
 #------------------------------------------------
@@ -235,10 +242,14 @@ if __name__=="__main__":
                   	taumax = max(tau, taumax)
             
             	ndone = int(round(ameans.shape[0]/taumax))
+            	if ndone == 0:
+            		Nmeasured = 0
+            	else:
+            		Nmeasured += 1
             
             	print 'Computed {0:d} effective ensembles (max correlation length is {1:g})'.format(ndone, taumax)
             	print
             	sys.stdout.flush()
             
-            	if ndone > nensembles:
+            	if ndone > nensembles and Nmeasured > args.nacor:
             		break

@@ -1,5 +1,5 @@
 import sys
-#sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
+sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
 sys.path.insert(0, '/projects/b1002/shadden/7_AnalyticTTV/01_MCMC/00_source_code')
 import fitnessNEW as fff
 import triangle
