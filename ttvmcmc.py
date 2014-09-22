@@ -1,3 +1,4 @@
+TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
 import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
 
@@ -59,6 +60,7 @@ if __name__=="__main__":
 	parser.add_argument('--ntemps', metavar='N', type=int, default=8, help='number different temperature scales to use')
 	parser.add_argument('--nthin', metavar='N', type=int, default=10, help='number of setps to take between each saved ensemble state')
 	parser.add_argument('--nthreads', metavar='N', type=int, default=multi.cpu_count(), help='number of concurrent threads to use')
+	parser.add_argument('--nbody', default=False, action='store_true', help='Use TTVFast for fitness calculations')
 	parser.add_argument('-M','--fit_mass', default=False, action='store_true', help='Include planet masses as MCMC parameters')
 	parser.add_argument('-P','--parfile', metavar='FILE', default=None, help='Text file containing parameter values to initialize walker around.')
 	parser.add_argument('-f','--first_order', default=False, action='store_true', help='only compute first-order TTV contribution')
@@ -93,10 +95,6 @@ if __name__=="__main__":
 	firstFlag = args.first_order
 	
 	print "Running with %d parallel threads" % nthreads
-	# get fitness object
-#--------------------------
-	ft = fitness(input_data,input_data1)
-#--------------------------
 	if args.parfile != None:
 		try:
 			pars0 = loadtxt(args.parfile)
@@ -106,51 +104,99 @@ if __name__=="__main__":
 			sys.exit()
 	else:
 		pars0 = array([1.e-5,1.e-5,0,0,0,0])
-	if args.fit_mass:
+
+#---------------------------
+# N-body fitting
+#---------------------------
+# For n-body fitting, MCMC parameter values are:
+#	MASS	EX	EY	PERIOD	MEAN_ANOM		
+	if args.nbody:
+		sys.path.insert(0,TTVFAST_PATH)
+		import PyTTVFast as ttv
+		ndim = 2*5
+		nbody_fit = ttv.TTVFitness([input_data,input_data1])
+#----------------------------------------------------------------------		
+		def fit(x):
+			return nbody_fit.CoplanarParametersFitness(x)
+		def logp(pars):
+			# Masses must be positive
+			masses = pars[::5]
+			bad_masses = any(pars[::5] < 0.0)
+			if bad_masses:
+				return -inf
+			
+			# Mean anomalies lie between -pi and pi
+			bad_angles = any(abs(pars[4::5]) > pi)
+			if bad_angles:
+				return -inf
+			
+			# Eccentricities must be smaller than 1
+			exs,eys = pars[1::5],pars[2::5]
+			bad_eccs = any(exs**2 +eys**2 >= 1.0)
+			if bad_eccs:
+				return -inf
+			
+			return 0.0
+		def initialize_walkers(nwalk,p0):
+			p0s=random.normal(size=(nwalk,6)) * array([0.1 * p0[0], 0.1 * p0[1], 0.005, 0.005, 0.005, 0.005]) + p0
+			masses = p0s[:,:2]
+			evecs = p0s[:,2:].reshape(-1,2,2)
+			ics = nbody_fit.GenerateInitialConditions(masses,evecs)
+			return ics
+
+
+#----------------------------------------------------------------------
+
+#--------------------------
+	else:
+		ft = fitness(input_data,input_data1)
+#--------------------------
+		if args.fit_mass:
 #---------------------------
 # Set-up using mass as a parameter
 #---------------------------
-		ndim = 6
-		def fit(x):
-			return ft.fitness2(x,firstOrder=firstFlag)
-		def logp(pars):
-			if pars[0] < 0. or pars[1] < 0.:
-				return -inf
-			if pars[2]**2 + pars[3]**2 >= 1 or pars[4]**2 + pars[5]**2 >= 1:
-				return -inf
-			return 0. 
-		def initialize_walkers(nwalk,p0):
-			return random.normal(size=(nwalk,ndim)) * array([0.1 * p0[0], 0.1 * p0[1], 0.005, 0.005, 0.005, 0.005]) + p0
+			ndim = 6
+			def fit(x):
+				return ft.fitness2(x,firstOrder=firstFlag)
+			def logp(pars):
+				if pars[0] < 0. or pars[1] < 0.:
+					return -inf
+				if pars[2]**2 + pars[3]**2 >= 1 or pars[4]**2 + pars[5]**2 >= 1:
+					return -inf
+				return 0. 
+			def initialize_walkers(nwalk,p0):
+				return random.normal(size=(nwalk,ndim)) * array([0.1 * p0[0], 0.1 * p0[1], 0.005, 0.005, 0.005, 0.005]) + p0
 
-	else:
+		else:
 #---------------------------
 # Set-up without mass as a parameter
 #---------------------------
-		ndim = 4
-		def fit(x):
-			return ft.fitness(x,firstOrder=firstFlag)[0]
-		def logp(pars):
-			if pars[0]**2 + pars[1]**2 >= 1 or pars[2]**2 + pars[3]**2 >= 1:
-				return -inf
-			return 0.0
-		def initialize_walkers(nwalk,p0):
-			return random.normal(size=(nwalk,ndim)) * 0.005 * ones(4) + p0[-4:]
-#---------------------------
-#---------------------------
+			ndim = 4
+			def fit(x):
+				return ft.fitness(x,firstOrder=firstFlag)[0]
+			def logp(pars):
+				if pars[0]**2 + pars[1]**2 >= 1 or pars[2]**2 + pars[3]**2 >= 1:
+					return -inf
+				return 0.0
+			def initialize_walkers(nwalk,p0):
+				return random.normal(size=(nwalk,ndim)) * 0.005 * ones(4) + p0[-4:]
 
 	means=[]
 	p = zeros((ntemps, nwalkers, ndim))
+#-----------------------------------------------------------------
+#	Set up sampler and walkers
+#-----------------------------------------------------------------	
 	if restart:
 		for i in range(ntemps):
 			p[i, :, :] = loadtxt('chain.%02d.dat.gz'%i)[-nwalkers:,:]
 
-		means = list(mean(loadtxt('chain.00.dat.gz').reshape((-1, nwalkers, ndim)), axis=1))
+		means = list(mean(loadtxt('chain.00.dat.gz').reshape((-1, nwalkers, ndim)), axis=1))		
 	else:
 		# Initialize chains
 		p = [initialize_walkers(nwalkers,pars0)]
       		for temp in range(ntemps-1):
             		p.append(initialize_walkers(nwalkers,pars0))
-
+#-----------------------------------------------------------------
 	# initialize sampler
 	sampler = emcee.PTSampler(ntemps,nwalkers,ndim,fit,logp,threads=nthreads)
 	Ts = 1.0/sampler.betas
