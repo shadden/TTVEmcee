@@ -63,23 +63,25 @@ Zx,Zy,absZ,argV = Zfn(ex,ey,ex1,ey1)
 Zxtrue,Zytrue,absZtrue,argVtrue=Zfn(truepars[2],truepars[3],truepars[4],truepars[5])
 
 data2 = array([log10(data[:,0]),log10(data[:,1]),data[:,2],data[:,3],data[:,4],data[:,5]]).T
-data3 = array([log10(data[:,0]),log10(data[:,1]),Zx,Zy,arctan2(Zy,Zx),absZ,argV]).T
+data3 = array([(data[:,0]),(data[:,1]),Zx,Zy,arctan2(Zy,Zx),absZ]).T
+
+true_vals = truepars.copy()
+true_vals[:2] = log10(true_vals[:2])
 
 if parsplot:
 	#elims = (-1,1)
 	elims = (-3*absZtrue,3*absZtrue)
 	extnts = [1.,1.,elims,elims,elims,elims]
-	true_vals = truepars.copy()
-	true_vals[:2] = log10(true_vals[:2])
 	lbls = ['logM','logM1','ex','ey','ex1','ey1']
 	triangle.corner(data2,extents=extnts,labels=lbls,truths=true_vals)
 	show()
 	savefig('parameters_corner.png')
 if zplot:	
-	lbls3 = ['logM','logM1','Zx','Zy','arg Z','|Z|','arg V']
-	truths3= array([true_vals[0],true_vals[1],Zxtrue,Zytrue,arctan2(Zytrue,Zxtrue),absZtrue,argVtrue])
+	lbls3 = ['logM','logM1','Zx','Zy','arg Z','|Z|']
+	truths3= array([truepars[0],truepars[1],Zxtrue,Zytrue,arctan2(Zytrue,Zxtrue),absZtrue])
 	zxtnts = (-3*absZtrue,3*absZtrue)
-	triangle.corner(data3,labels=lbls3,truths=truths3,extents=[(-6,-4),(-6,-4),zxtnts,zxtnts,(-pi,pi),(0,3*absZtrue),(-pi,pi)])
+	#triangle.corner(data3,labels=lbls3,truths=truths3,extents=[(1.e-6,1.e-4),(1.e-6,1.e-4),zxtnts,zxtnts,(-pi,pi),(0,3*absZtrue)])
+	triangle.corner(data3,labels=lbls3,truths=truths3)
 	show()
 	savefig('mass-vs-Z_corner.png')
 if chainplot:	
