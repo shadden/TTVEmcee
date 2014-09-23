@@ -72,7 +72,9 @@ if __name__=="__main__":
 	#
 	input_data = loadtxt("./inner.ttv")
 	input_data1= loadtxt("./outer.ttv")
-	
+	input_data[:,0] -= 1
+	input_data1[:,0] -= 1
+	 
 	input_dataTR,input_data1TR = TrimData(input_data,input_data1,tol=2.5)
 	if len(input_dataTR) != len(input_data):
 		print "Removed %d transit(s) from inner planet:" %( len(input_data) - len(input_dataTR) )
@@ -141,7 +143,9 @@ if __name__=="__main__":
 			p0s=random.normal(size=(nwalk,6)) * array([0.1 * p0[0], 0.1 * p0[1], 0.005, 0.005, 0.005, 0.005]) + p0
 			masses = p0s[:,:2]
 			evecs = p0s[:,2:].reshape(-1,2,2)
-			ics = nbody_fit.GenerateInitialConditions(masses,evecs)
+			ics = nbody_fit.GenerateInitialConditions(masses,evecs,lazy=True)
+			for ic in ics:
+				ic[3::5]+= random.normal(0.,1.e-4,2)
 			return ics
 
 
@@ -234,7 +238,9 @@ if __name__=="__main__":
                         # the best point so far
                         	imax = argmax(lnlike[0])
                         	best = p.reshape((-1, p.shape[-1]))[imax,:]
-                        	p = recenter_best(p, best, logp, shrinkfactor=4.0,nthreads=nthreads)
+                        	print "Best initial likelihood: %.1f"%maxlnlike
+                        	print "Recentering on best..."
+                        	p = recenter_best(p, best, logp, shrinkfactor=10.0,nthreads=nthreads)
                         
                         	lnpost = None
                         	lnlike = None
