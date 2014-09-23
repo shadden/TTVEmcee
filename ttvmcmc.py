@@ -1,4 +1,5 @@
-TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
+TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
+#TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
 import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
 
@@ -72,8 +73,10 @@ if __name__=="__main__":
 	#
 	input_data = loadtxt("./inner.ttv")
 	input_data1= loadtxt("./outer.ttv")
-	input_data[:,0] -= 1
-	input_data1[:,0] -= 1
+	while min(append(input_data[:,0],input_data1[:,0])) != 0:
+		print "re-numbering transits..."
+		input_data[:,0] -= 1
+		input_data1[:,0] -= 1
 	 
 	input_dataTR,input_data1TR = TrimData(input_data,input_data1,tol=2.5)
 	if len(input_dataTR) != len(input_data):
@@ -192,6 +195,7 @@ if __name__=="__main__":
 #-----------------------------------------------------------------	
 	if restart:
 		for i in range(ntemps):
+			print "Loading chain %02d from file..."%i
 			p[i, :, :] = loadtxt('chain.%02d.dat.gz'%i)[-nwalkers:,:]
 
 		means = list(mean(loadtxt('chain.00.dat.gz').reshape((-1, nwalkers, ndim)), axis=1))		
