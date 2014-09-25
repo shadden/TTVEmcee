@@ -1,5 +1,5 @@
-#TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
-TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
+TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
+#TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
 import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
 
@@ -66,6 +66,7 @@ if __name__=="__main__":
 	parser.add_argument('-P','--parfile', metavar='FILE', default=None, help='Text file containing parameter values to initialize walker around.')
 	parser.add_argument('-f','--first_order', default=False, action='store_true', help='only compute first-order TTV contribution')
 	parser.add_argument('--noloop', default=False, action='store_true', help='Run set-up but do not excecute the MCMC main loop')
+	parser.add_argument('--special', default=False, action='store_true', help='temporary flag for special debugging runs')
 	
 	
 	# 
@@ -200,6 +201,14 @@ if __name__=="__main__":
 		p = [initialize_walkers(nwalkers,pars0)]
       		for temp in range(ntemps-1):
             		p.append(initialize_walkers(nwalkers,pars0))
+	if args.special:
+
+		pars = loadtxt("pars.txt")
+		p = random.normal(pars,(2.e-6,1e-5,1e-5,2.e-6,1e-5,1e-5,1.e-6,0.1),( ntemps , nwalkers , len(pars) ))
+		p[:,:,-1] = mod(p[:,:,-1]+pi,2*pi) - pi
+	
+	for x in p.reshape(-1,8):
+		assert logp(x)==0.0 and fit(x) > -inf, "Bad IC generated!"
 #-----------------------------------------------------------------
 	# initialize sampler
 	sampler = emcee.PTSampler(ntemps,nwalkers,ndim,fit,logp,threads=nthreads)
@@ -233,7 +242,7 @@ if __name__=="__main__":
 		if old_best_lnlike is None:
 			old_best_lnlike = maxlnlike
 		
-			if not restart:
+			if not restart and not args.special:
                         # If on first iteration, then start centered around
                         # the best point so far
                         	imax = argmax(lnlike[0])
@@ -248,7 +257,7 @@ if __name__=="__main__":
                         
                         	continue
 
-		if maxlnlike >  old_best_lnlike + p.shape[-1]/2.0:
+		if maxlnlike >  old_best_lnlike + p.shape[-1]/2.0 and not args.special:
 			old_best_lnlike =  maxlnlike
 			reset = True
 			means = []
