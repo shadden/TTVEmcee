@@ -1,5 +1,5 @@
-TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
-#TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
+#TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
+TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
 import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
 
@@ -118,38 +118,34 @@ if __name__=="__main__":
 	if args.nbody:
 		sys.path.insert(0,TTVFAST_PATH)
 		import PyTTVFast as ttv
-		ndim = 2*5
+		ndim = 2*5-2
 		nbody_fit = ttv.TTVFitness([input_data,input_data1])
 #----------------------------------------------------------------------		
 		def fit(x):
-			return nbody_fit.CoplanarParametersFitness(x)
+			return nbody_fit.CoplanarParametersFitness2(x)
 		def logp(pars):
 			# Masses must be positive
-			masses = pars[::5]
-			bad_masses = any(pars[::5] < 0.0)
+			masses = array((pars[0],pars[3]))
+			bad_masses = any(masses < 0.0)
 			if bad_masses:
 				return -inf
 			
 			# Mean anomalies lie between -pi and pi
-			bad_angles = any(abs(pars[4::5]) > pi)
+			bad_angles = abs(pars[-1]) > pi
 			if bad_angles:
 				return -inf
 			
 			# Eccentricities must be smaller than 1
-			exs,eys = pars[1::5],pars[2::5]
+			exs,eys = array([pars[1],pars[4]]),array([pars[2],pars[5]])
 			bad_eccs = any(exs**2 +eys**2 >= 1.0)
 			if bad_eccs:
 				return -inf
 			
 			return 0.0
+	
 		def initialize_walkers(nwalk,p0):
-			p0s=random.normal(size=(nwalk,6)) * array([0.1 * p0[0], 0.1 * p0[1], 0.005, 0.005, 0.005, 0.005]) + p0
-			masses = p0s[:,:2]
-			evecs = p0s[:,2:].reshape(-1,2,2)
-			ics = nbody_fit.GenerateInitialConditions(masses,evecs,lazy=True)
-			for ic in ics:
-				ic[3::5]+= random.normal(0.,1.e-4,2)
-			return ics
+			ics = nbody_fit.GenerateRandomInitialConditions([p0[0],p0[1]],0.1,[[p0[2],p0[3]],[p0[4],p0[5]]],0.005,nwalk)
+			return array([ nbody_fit.convert_params(ic) for ic in ics])
 
 
 #----------------------------------------------------------------------
