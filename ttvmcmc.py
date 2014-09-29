@@ -1,5 +1,5 @@
-#TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
-TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
+TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
+#TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
 import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
 
@@ -207,8 +207,8 @@ if __name__=="__main__":
 		p = random.normal(pars,(2.e-6,1e-5,1e-5,2.e-6,1e-5,1e-5,1.e-6,0.1),( ntemps , nwalkers , len(pars) ))
 		p[:,:,-1] = mod(p[:,:,-1]+pi,2*pi) - pi
 	
-	for x in p.reshape(-1,8):
-		assert logp(x)==0.0 and fit(x) > -inf, "Bad IC generated!"
+		for x in p.reshape(-1,8):
+			assert logp(x)==0.0 and fit(x) > -inf, "Bad IC generated!"
 #-----------------------------------------------------------------
 	# initialize sampler
 	sampler = emcee.PTSampler(ntemps,nwalkers,ndim,fit,logp,threads=nthreads)

@@ -1,5 +1,5 @@
-#TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
-TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
+TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
+#TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
 
 import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
@@ -23,7 +23,7 @@ if __name__=="__main__":
 	parser.add_argument('--restart', default=False, action='store_true', help='continue a previously-existing run')
 	parser.add_argument('--erase', default=False, action='store_true', help='Start walkers from old files but overwrite them')
 	parser.add_argument('-n','--nensembles', metavar='N', type=int, default=100, help='number of ensembles to accumulate')
-	parser.add_argument('--nburn', metavar='N', type=int, default=200, help='number samples to use for burn-in')
+	parser.add_argument('--nburn', metavar='N', type=int, default=300, help='number samples to use for burn-in')
 	parser.add_argument('--nacor', metavar='N', type=int, default=5, help='Number of consecutive non-infinite autocorellation measurements required before exiting')
 	parser.add_argument('--nwalkers', metavar='N', type=int, default=100, help='number of walkers to use')
 	parser.add_argument('--nthin', metavar='N', type=int, default=10, help='number of setps to take between each saved ensemble state')
@@ -164,18 +164,19 @@ if __name__=="__main__":
 #------------------------------------------------
 # MAIN LOOP
 #------------------------------------------------
-	print "Starting burning..."
-	for p,lnlike,blobs in sampler.sample(p, iterations=nburn, storechain = True):
-		pass	
+	if not restart:
+		print "Starting burn-in..."
+		for p,lnlike,blobs in sampler.sample(p, iterations=nburn, storechain = True):
+			pass	
 	
-	p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
-	sampler.reset()
+		p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
+		sampler.reset()
 
+		print "Burn-in complete, starting main loop"
 	for k in range( int(ceil(nensembles/nthin)) ):
 		if args.noloop:
 			break
 		# take 'nthin' samples.
-		print "Burn-in complete, starting main loop"
 		for p,lnlike,blobs in sampler.sample(p,iterations=nthin, storechain = True):
 			pass	
 
