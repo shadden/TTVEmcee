@@ -41,7 +41,7 @@ if __name__=="__main__":
 #----------------------------------------------------------------------------------
 # Get input TTV data and remove outliers
 #----------------------------------------------------------------------------------
-	input_dataTR,input_data1TR = TrimData(input_data,input_data1,tol=2.3)
+	input_dataTR,input_data1TR = TrimData(input_data,input_data1,tol=2.5)
 	if len(input_dataTR) != len(input_data):
 		print "Removed %d transit(s) from inner planet:" %( len(input_data) - len(input_dataTR) )
 		for bad in set(input_data[:,0]).difference( set(input_dataTR[:,0]) ):
