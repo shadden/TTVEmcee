@@ -91,9 +91,9 @@ if __name__=="__main__":
 		if bad_angles:
 			return -inf
 		
-		# Eccentricities must be smaller than 1
+		# Eccentricities must be smaller than 0.9
 		exs,eys = array([pars[1],pars[4]]),array([pars[2],pars[5]])
-		bad_eccs = any(exs**2 +eys**2 >= 1.0)
+		bad_eccs = any(exs**2 +eys**2 >= 0.9**2)
 		if bad_eccs:
 			return -inf
 
@@ -113,7 +113,7 @@ if __name__=="__main__":
 		
 		# Eccentricities must be smaller than 1
 		exs,eys = array([x[1],x[4]]),array([x[2],x[5]])
-		bad_eccs = any(exs**2 +eys**2 >= 1.0)
+		bad_eccs = any(exs**2 +eys**2 >= 0.9**2)
 		if bad_eccs:
 			return -inf
 		
@@ -164,6 +164,7 @@ if __name__=="__main__":
 #------------------------------------------------
 # MAIN LOOP
 #------------------------------------------------
+	# --- Burn-in Phase --- #
 	if not restart:
 		print "Starting burn-in..."
 		for p,lnlike,blobs in sampler.sample(p, iterations=nburn, storechain = True):
@@ -173,6 +174,7 @@ if __name__=="__main__":
 		sampler.reset()
 
 		print "Burn-in complete, starting main loop"
+
 	for k in range( int(ceil(nensembles/nthin)) ):
 		if args.noloop:
 			break
