@@ -59,15 +59,16 @@ def fullPeriodFit2(trdata1,trdata2):
 
 	return popt[0],popt[1], popt1[0], popt1[1]
 
-def TrimData(trdata1,trdata2,tol=3.5):
-	per,t0,per1,t10 = fullPeriodFit2(trdata1,trdata2)
+def TrimData(data,tol=3.0):
+	periods,t0s==array([ linefit(x[:,0],x[:,1])  for x in data ]).T
 	
-	rms = sqrt( var(trdata1[:,1] - per * trdata1[:,0] - t0 ) )
-	rms1 = sqrt( var(trdata2[:,1] - per1 * trdata2[:,0] - t10 ) )
+	rms = array([ sqrt( var(tr[:,1] - periods[i] * tr[:,0] - t0s[i] ) for i,tr in enumerate(data)])
 	
-	trim1 = array( [ x for x in trdata1 if abs( x[1] - x[0] *per -t0 ) < tol * rms ])
-	trim2 = array( [ x for x in trdata2 if abs( x[1] - x[0] *per1 -t10 ) < tol * rms1 ])
-	return trim1, trim2
+	trimmed_data = []
+	for i,tr in enumerate(data):
+		trimmed_data.append( array( [ x for x in tr if abs( x[1] - x[0] *periods[i] -t0s[i] ) < tol * rms[i] ]) )
+
+	return trimmed_data
 	
 def fullPeriodFit2plot(trdata1,trdata2,resids=False,planets=3):
 	"""If the option 'resids' is specified, plot the redisuals of the model fitting procedure.  
