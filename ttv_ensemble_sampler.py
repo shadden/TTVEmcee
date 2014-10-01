@@ -1,5 +1,5 @@
-TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
-#TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
+#TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
+TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
 
 import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
@@ -30,28 +30,9 @@ if __name__=="__main__":
 	parser.add_argument('--nthreads', metavar='N', type=int, default=multi.cpu_count(), help='number of concurrent threads to use')
 	parser.add_argument('-P','--parfile', metavar='FILE', default=None, help='Text file containing parameter values to initialize walker around.')
 	parser.add_argument('--noloop', default=False, action='store_true', help='Run set-up but do not excecute the MCMC main loop')
-		
-	input_data = loadtxt("./inner.ttv")
-	input_data1= loadtxt("./outer.ttv")
-	while min(append(input_data[:,0],input_data1[:,0])) != 0:
-		print "re-numbering transits..."
-		input_data[:,0] -= 1
-		input_data1[:,0] -= 1
-
-#----------------------------------------------------------------------------------
-# Get input TTV data and remove outliers
-#----------------------------------------------------------------------------------
-	input_dataTR,input_data1TR = TrimData(input_data,input_data1,tol=2.5)
-	if len(input_dataTR) != len(input_data):
-		print "Removed %d transit(s) from inner planet:" %( len(input_data) - len(input_dataTR) )
-		for bad in set(input_data[:,0]).difference( set(input_dataTR[:,0]) ):
-			print "\t%d"%bad
-		input_data = input_dataTR
-	if len(input_data1TR) != len(input_data1):
-		print "Removed %d transits from outer planet:" %( len(input_data1) - len(input_data1TR) )
-		for bad in set(input_data1[:,0]).difference( set(input_data1TR[:,0]) ):
-			print "\t%d"%bad
-		input_data1 = input_data1TR
+	
+	parser.add_argument('--input','-I',metavar='FILE',default='planets.txt',help='File that lists the names of the files containing input transits')
+	
 #----------------------------------------------------------------------------------
 
 	args = parser.parse_args()
@@ -61,8 +42,38 @@ if __name__=="__main__":
 	nthin=args.nthin
 	nthreads=args.nthreads
 	nburn = args.nburn
+	infile = args.input
+	
+#----------------------------------------------------------------------------------
+
+		
+	with open(infile,'r') as fi:
+		infiles = [ line.strip() for line in fi.readlines()]
+		
+	input_data =[]
+	for file in infiles:
+		input_data.append( loadtxt(file) )
+	nplanets = len(input_data)
+	
+	
+	while min( array([ min(tr[:,0]) for tr in input_data])  ) != 0:
+		print "re-numbering transits..."
+		for data in input_data:
+			data[:,0] -= 1
 
 #----------------------------------------------------------------------------------
+# Get input TTV data and remove outliers
+#----------------------------------------------------------------------------------
+	trim = None
+	if trim:
+		input_dataTR = TrimData(input_data,tol=3.)
+		for i,new_transits in enumerate(input_dataTR):
+			if len(new_transits) != len(input_data[i]):
+				print "Removed %d transit(s) from inner planet:" %( len(input_data[i]) - len(new_transits) )
+		
+				for bad in set(input_data[i][:,0]).difference( set(input_dataTR[i][:,0]) ):
+					print "\t%d"%bad
+	
 	if args.parfile != None:
 		try:
 			pars0 = loadtxt(args.parfile)
@@ -71,48 +82,30 @@ if __name__=="__main__":
 			print "Aborting..."
 			sys.exit()
 	else:
-		pars0 = array([1.e-5,1.e-5,0,0,0,0])
+		pars0 = append(ones(nplanets) * 1.e-5 , zeros(2*nplanets) )
 #----------------------------------------------------------------------------------
 	sys.path.insert(0,TTVFAST_PATH)
 	import PyTTVFast as ttv
-	ndim = 2*5-2
-	nbody_fit = ttv.TTVFitnessAdvanced([input_data,input_data1])
+	ndim = 5*nplanets-2
+	nbody_fit = ttv.TTVFitnessAdvanced(input_data)
 #----------------------------------------------------------------------		
 	# Priors function
-	def logp(pars):
-		# Masses must be positive
-		masses = array((pars[0],pars[3]))
-		bad_masses = any(masses < 0.0)
-		if bad_masses:
-			return -inf
-		
-		# Mean anomalies lie between -pi and pi
-		bad_angles = abs(pars[-1]) > pi
-		if bad_angles:
-			return -inf
-		
-		# Eccentricities must be smaller than 0.9
-		exs,eys = array([pars[1],pars[4]]),array([pars[2],pars[5]])
-		bad_eccs = any(exs**2 +eys**2 >= 0.9**2)
-		if bad_eccs:
-			return -inf
-
-		return 0.0
 
 	def fit(x):
 		# Masses must be positive
-		masses = array((x[0],x[3]))
+		masses = (x[::3])[:nplanets]
 		bad_masses = any(masses < 0.0)
 		if bad_masses:
 			return -inf
 		
 		# Mean anomalies lie between -pi and pi
-		bad_angles = abs(x[-1]) > pi
+		meanAnoms = x[3*nplanets+1::2]
+		bad_angles = any( meanAnoms > pi)
 		if bad_angles:
 			return -inf
 		
 		# Eccentricities must be smaller than 1
-		exs,eys = array([x[1],x[4]]),array([x[2],x[5]])
+		exs,eys =(x[1::3])[:nplanets],(x[2::3])[:nplanets]
 		bad_eccs = any(exs**2 +eys**2 >= 0.9**2)
 		if bad_eccs:
 			return -inf
@@ -120,8 +113,10 @@ if __name__=="__main__":
 		return nbody_fit.CoplanarParametersFitness(x)
 
 	def initialize_walkers(nwalk,p0):
-		"""Initialize walkers around point p0 = [ mass1,mass2,ex1,ey1,ex2,ey2,P2_obs/P1_obs, dL_obs]"""
-		ics = nbody_fit.GenerateRandomInitialConditions([p0[0],p0[1]],0.1,[[p0[2],p0[3]],[p0[4],p0[5]]],0.002,nwalk)
+		"""Initialize walkers around point p0 = [ mass1,mass2,...,ex1,ey1,ex2,ey2,...,P2_obs/P1_obs,..., dL2_obs,...]"""
+		masses = p0[:nplanets]
+		evecs = p0[nplanets:].reshape(-1,2)
+		ics = nbody_fit.GenerateRandomInitialConditions(masses,0.1,evecs,0.002,nwalk)
 		return array([ nbody_fit.convert_params(ic) for ic in ics])
 
 	means=[]
@@ -138,10 +133,10 @@ if __name__=="__main__":
 		# Initialize new walkers
 		p=initialize_walkers(nwalkers,pars0)
 	
-	for x in p.reshape(-1,8):
-		assert logp(x)==0.0 and fit(x) > -inf, "Bad IC generated!"
+	for x in p.reshape(-1,ndim):
+		assert fit(x) > -inf, "Bad IC generated!"
 		
-
+	
 	# initialize sampler
 	sampler = emcee.EnsembleSampler(nwalkers,ndim,fit,threads=nthreads)
 
@@ -161,11 +156,12 @@ if __name__=="__main__":
 		with gzip.open('chain.lnlike.dat.gz', 'w') as out:
 				out.write("# Likelihoods")
 
+	acorstring = ('\t'.join(["M%d\tEX%d\tEY%d"%(d,d,d) for d in range(nplanets)]))+'\t'+('\t'.join(["P%d\tdL%d"%(d,d) for d in range(1,nplanets)]))
 #------------------------------------------------
 # MAIN LOOP
 #------------------------------------------------
 	# --- Burn-in Phase --- #
-	if not restart:
+	if not restart and not args.noloop:
 		print "Starting burn-in..."
 		for p,lnlike,blobs in sampler.sample(p, iterations=nburn, storechain = True):
 			pass	
@@ -184,7 +180,7 @@ if __name__=="__main__":
 
 		print '(%d/%d) acceptance fraction = %.3f'%( k+1, nloops, mean(sampler.acceptance_fraction) )
 		print 'Autocorrelation lengths: '
-		print 'M1\t EX1\t EY1\t M2\t EX2\t EY2\t P\t L'
+		print acorstring
 		print '\t'.join(map(lambda x: '{0:.1f}'.format(x), sampler.acor))
 		sys.stdout.flush()
 
