@@ -60,10 +60,10 @@ def fullPeriodFit2(trdata1,trdata2):
 	return popt[0],popt[1], popt1[0], popt1[1]
 
 def TrimData(data,tol=3.0):
-	periods,t0s==array([ linefit(x[:,0],x[:,1])  for x in data ]).T
+	t0s,periods=array([ linearfit(x[:,0],x[:,1])  for x in data ]).T
 	
-	rms = array([ sqrt( var(tr[:,1] - periods[i] * tr[:,0] - t0s[i] ) for i,tr in enumerate(data)])
-	
+	rms = array([ sqrt( var(tr[:,1] - periods[i] * tr[:,0] - t0s[i] )) for i,tr in enumerate(data)])
+	print rms
 	trimmed_data = []
 	for i,tr in enumerate(data):
 		trimmed_data.append( array( [ x for x in tr if abs( x[1] - x[0] *periods[i] -t0s[i] ) < tol * rms[i] ]) )
