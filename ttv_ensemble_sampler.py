@@ -1,5 +1,5 @@
-#TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
-TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
+TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
+#TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
 
 import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
@@ -169,20 +169,20 @@ if __name__=="__main__":
 		print "Starting burn-in..."
 		for p,lnlike,blobs in sampler.sample(p, iterations=nburn, storechain = True):
 			pass	
-	
 		p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
 		sampler.reset()
 
 		print "Burn-in complete, starting main loop"
 
-	for k in range( int(ceil(nensembles/nthin)) ):
+	nloops = int(ceil(nensembles/nthin))
+	for k in range(nloops):
 		if args.noloop:
 			break
 		# take 'nthin' samples.
 		for p,lnlike,blobs in sampler.sample(p,iterations=nthin, storechain = True):
 			pass	
 
-		print 'acceptance fraction = %.3f'%mean(sampler.acceptance_fraction) 
+		print '(%d/%d) acceptance fraction = %.3f'%( k+1, nloops, mean(sampler.acceptance_fraction) )
 		print 'Autocorrelation lengths: '
 		print 'M1\t EX1\t EY1\t M2\t EX2\t EY2\t P\t L'
 		print '\t'.join(map(lambda x: '{0:.1f}'.format(x), sampler.acor))
@@ -200,10 +200,11 @@ if __name__=="__main__":
 			print
 			sys.stdout.flush()
 			
-			continue
+			#continue
 
 		# Append current state to chain file
 		with gzip.open('chain.dat.gz', 'a') as out:
+			#print 'appending to chain: ',p.shape
 			savetxt(out, p)
 		with gzip.open('chain.lnlike.dat.gz', 'a') as out:
 			savetxt(out, lnlike)
