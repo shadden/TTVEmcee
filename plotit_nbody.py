@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 import matplotlib.pyplot as pl
 parser = ArgumentParser(description='Make plots from the output of ensemble sampler with N-body likelihood calculations')
 parser.add_argument('--minlnlike','-L', metavar='F', type=float, default= -np.inf, help='Minimum log-likelihood of chain values to include in plot. Default setting includes all values.')
-parser.add_argument('--file','-f',metavar='FILE',default=None, help='Save the generated plot as FILE')
+parser.add_argument('--file','-f',metavar='PREFIX',default=None, help='Save the generated plots as PREFIX_[plot type].png')
 parser.add_argument('--burnin',metavar='F',type=float,default=0.2, help='Discard the first F fraction of the chain as burn-in')
 
 args = parser.parse_args()
@@ -41,7 +41,9 @@ def Zfn(evals):
 		fCoeff = -2.02522
 		f1Coeff = 2.48401
 	elif j==4:
-		fcoeff,f1Coeff = -2.84043, 3.28326
+		fCoeff,f1Coeff = -2.84043, 3.28326
+	elif j==5:
+		fCoeff,f1Coeff = -3.64962, 4.08371
 	else:
 		raise Exception("Laplace coefficients missing!",j)
 		
@@ -54,9 +56,16 @@ Zdat = np.array([Zfn(edat) for edat in evals])
 nburn = int( np.round( burn_frac * len(chain) ) )
 chain,Zdat,lnlike  = chain[nburn:],Zdat[nburn:],lnlike[nburn:]
 
-triangle.corner(np.hstack( ( chain[:,(0,3)],Zdat ) )[lnlike > minlnlike] , labels = ('m','m1','Zx','Zy','|Z|') )#,extents = extnts) 
+pl.hist(lnlike[lnlike>minlnlike],bins=100)
+if args.file:
+	pl.savefig("%s_chi2.png"%args.file)
+
+triangle.corner(np.hstack( ( chain[:,(0,3)],Zdat ) )[lnlike > minlnlike] , labels = ('m','m1','Zx','Zy','|Z|') )
+if args.file:
+	pl.savefig("%s_mass-vs-Z.png"%args.file)
+
+triangle.corner(chain[lnlike>minlnlike][:,:6] , labels = ('m','ex','ey','m1','ex1','ey1') )
+if args.file:
+	pl.savefig("%s_mass-vs-ecc.png"%args.file)
 
 pl.show()
-
-if args.file:
-	pl.savefig(args.file)
