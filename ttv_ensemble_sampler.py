@@ -128,13 +128,17 @@ if __name__=="__main__":
 		# Read in old walkers
 		print "Loading chain from file..."
 		p = loadtxt('chain.dat.gz')[-nwalkers:,:]
+		lnlike = loadtxt('chain.lnlike.dat.gz')[-nwalkers:]
+		old_best = p[argmax(lnlike)]
 		print "%d x %d chain loaded"%p.shape
+		print "Best likelihood: %.1f"%max(lnlike)
+		
 	else:
 		# Initialize new walkers
 		p=initialize_walkers(nwalkers,pars0)
 	
-	for x in p.reshape(-1,ndim):
-		assert fit(x) > -inf, "Bad IC generated!"
+		for x in p.reshape(-1,ndim):
+			assert fit(x) > -inf, "Bad IC generated!"
 		
 	
 	# initialize sampler
@@ -142,14 +146,13 @@ if __name__=="__main__":
 
 	print "Beggining ensemble evolution"
 	print "Running with %d parallel threads" % nthreads
-	print
-
 	sys.stdout.flush()
-	lnpost = None
-	lnlike = None
+
+ 	lnlike = None
 	old_best_lnlike = None
 	reset = False
 	Nmeasured = 0
+
 	if not restart or args.erase:
 		with gzip.open('chain.dat.gz', 'w') as out:
 				out.write("# Parameter Chains")
@@ -161,15 +164,35 @@ if __name__=="__main__":
 # MAIN LOOP
 #------------------------------------------------
 	# --- Burn-in Phase --- #
+	fancystart = True
+	
 	if not restart and not args.noloop:
+	# If starting MCMC for first time, generate some samples to find a starting place from
 		print "Starting burn-in..."
 		for p,lnlike,blobs in sampler.sample(p, iterations=nburn, storechain = True):
 			pass	
-		p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
-		sampler.reset()
-
 		print "Burn-in complete, starting main loop"
 
+		old_best = sampler.flatchain[argmax(sampler.flatlnprobability)]
+	
+	if not restart or args.erase:
+	# If starting MCMC for the first time or if the old chains are going to be erased,
+	# try to use Levenberg-Marquardt to find the best parameters to start new walkers around
+		shrink = 20.
+		print "Starting L-M least-squares from likelihood: %.1f"%fit(old_best)
+		try:
+			out=nbody_fit.CoplanarParametersTTVFit(old_best)
+			bestfit,cov = out[:2]
+			print "Max likelihood via L-M least-squares: %.1f"%fit(bestfit)
+			p = random.multivariate_normal(bestfit,cov/(shrink*shrink),size=nwalkers)
+
+		else:
+			print "L-M least-square couldn't find a minimum to initialize around..."
+			print "Initializing from the best walkers so far..."
+			p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
+		
+	sampler.reset()
+		
 	nloops = int(ceil(nensembles/nthin))
 	for k in range(nloops):
 		if args.noloop:
