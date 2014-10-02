@@ -1,5 +1,12 @@
-#TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
-TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
+import os
+who =os.popen("whoami") 
+if who.readline().strip() =='samuelhadden':
+	print "On laptop..."
+	TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
+else:
+	print "On Quest..."
+	TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
+who.close()
 
 import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
@@ -175,7 +182,7 @@ if __name__=="__main__":
 
 		old_best = sampler.flatchain[argmax(sampler.flatlnprobability)]
 	
-	if not restart or args.erase:
+	if (not restart or args.erase) and not args.noloop:
 	# If starting MCMC for the first time or if the old chains are going to be erased,
 	# try to use Levenberg-Marquardt to find the best parameters to start new walkers around
 		shrink = 20.
@@ -185,8 +192,7 @@ if __name__=="__main__":
 			bestfit,cov = out[:2]
 			print "Max likelihood via L-M least-squares: %.1f"%fit(bestfit)
 			p = random.multivariate_normal(bestfit,cov/(shrink*shrink),size=nwalkers)
-
-		else:
+		except:
 			print "L-M least-square couldn't find a minimum to initialize around..."
 			print "Initializing from the best walkers so far..."
 			p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
