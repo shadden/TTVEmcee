@@ -1,19 +1,36 @@
+import os
+import sys
+who =os.popen("whoami") 
+if who.readline().strip() =='samuelhadden':
+	print "On laptop..."
+	TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
+else:
+	print "On Quest..."
+	TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
+who.close()
+sys.path.insert(0,TTVFAST_PATH)
+import PyTTVFast as ttv
 import triangle
 import numpy as np
 from argparse import ArgumentParser
 import matplotlib.pyplot as pl
+
 parser = ArgumentParser(description='Make plots from the output of ensemble sampler with N-body likelihood calculations')
 parser.add_argument('--minlnlike','-L', metavar='F', type=float, default= -np.inf, help='Minimum log-likelihood of chain values to include in plot. Default setting includes all values.')
 parser.add_argument('--file','-f',metavar='PREFIX',default=None, help='Save the generated plots as PREFIX_[plot type].png')
-parser.add_argument('--burnin',metavar='F',type=float,default=0.2, help='Discard the first F fraction of the chain as burn-in')
+parser.add_argument('--noPlots',default=False, action='store_true' ,help='Don\'t make plots')
+parser.add_argument('--truths',metavar='FILE',default=None ,help='File containing the true masses and eccentricity components to show on triangle plot')
 
 args = parser.parse_args()
 minlnlike = args.minlnlike
-burn_frac = args.burnin
 
-lnlike,chain = np.loadtxt('./chain.lnlike.dat.gz'),np.loadtxt('./chain.dat.gz')
-rot = np.array([[0.,1.,0.,.0],[-1.,0.,0.,0.],[0.,0.,0.,1.],[0.,0.,-1.0,0.]])
-evals = np.array([rot.dot(x) for x in chain[:,(1,2,4,5)]])
+with open('planets.txt','r') as fi:
+	infiles = [ line.strip() for line in fi.readlines()]
+input_data= []
+for file in infiles:
+	input_data.append( np.loadtxt(file) )
+nplanets = len(input_data)
+nbody_fit = ttv.TTVFitnessAdvanced(input_data)
 
 def linefit(x,y):
 	""" 
@@ -24,16 +41,51 @@ def linefit(x,y):
 	A = np.vstack([const,x]).T
 	return np.linalg.lstsq(A,y)[0]
 
-innerttvs,outerttvs = np.loadtxt('inner.ttv'),np.loadtxt('outer.ttv')
-pin = linefit(innerttvs[:,0],innerttvs[:,1])[1]
-pout = linefit(outerttvs[:,0],outerttvs[:,1])[1]
+def dataMedianAndRange(data,q=90.0):
+	med = np.median(data)
+	dq = 0.5 * (100. - q)
+	lo = np.percentile(data, dq)
+	hi = np.percentile(data,100. - dq)
+	return (lo,med,hi)
 
-j  = np.argmin( [ np.abs((j-1) * pout / (j*pin) -1.) for j in range(2,7) ] ) + 2
-#print pin,pout,j
+#innerttvs,outerttvs = np.loadtxt('inner.ttv'),np.loadtxt('outer.ttv')
+with open('planets.txt','r') as fi:
+	plfiles = [line.strip() for line in fi.readlines()]
 
-def Zfn(evals):
-	""" Convert individual eccentricities to combined eccentricity entering into first-order MMR potential terms"""
-	ex,ey,ex1,ey1 = evals
+nplanets = len(plfiles)
+ttvs = []
+periods = np.zeros(nplanets)
+lnlike,chain = np.loadtxt('./chain.lnlike.dat.gz'),np.loadtxt('./chain.dat.gz')
+
+
+rot = np.array([[0.,1.,0.,.0],[-1.,0.,0.,0.],[0.,0.,0.,1.],[0.,0.,-1.0,0.]])
+e_indices =  np.array([ (3*n+1,3*n+2) for n in range(nplanets) ]).reshape(-1)
+mass_indices =  tuple([ 3*n for n in range(nplanets) ])
+
+
+evals = np.array([x for x in chain[:,tuple(e_indices)] ])
+masses=chain[:,mass_indices]
+
+for i,file in enumerate(plfiles):
+	print file
+	ttvs.append( np.loadtxt(file) )
+	periods[i] = linefit((ttvs[-1])[:,0] , (ttvs[-1])[:,1])[1]
+	print periods[i]
+
+def reshapeChain(walkerPosition):
+	massvals = walkerPosition[mass_indices,]
+	evals = walkerPosition[e_indices,].reshape(-1,2)
+	rMatrix = np.array([[0.,1.],[-1.,0]])
+	return np.append(massvals,np.dot(evals,rMatrix).reshape(-1)) 
+def get_j_delta(p1,p2):
+	pratio = np.min((p2/p1,p1/p2))
+	j = np.argmin([abs((j-1)*pratio/j-1) for j in range(2,6)]) + 2
+	delta = (j-1.) * pratio / j - 1.
+	return j,delta
+
+def Zfn(evals,j):
+	"""Convert individual eccentricities to combined eccentricity entering into first-order MMR potential terms"""
+	ex,ey,ex1,ey1 = rot.dot(evals)
 	if j==2:
 		fCoeff = -1.19049
 		f1Coeff = 0.42839
@@ -44,6 +96,8 @@ def Zfn(evals):
 		fCoeff,f1Coeff = -2.84043, 3.28326
 	elif j==5:
 		fCoeff,f1Coeff = -3.64962, 4.08371
+	elif j==6:
+		fCoeff,f1Coeff = -4.45614, 4.88471
 	else:
 		raise Exception("Laplace coefficients missing!",j)
 		
@@ -51,21 +105,55 @@ def Zfn(evals):
 	Zy = fCoeff * ey + f1Coeff * ey1
 	return Zx,Zy, np.linalg.norm( np.array((Zx,Zy)) )
 
-Zdat = np.array([Zfn(edat) for edat in evals])
+if args.truths:
+	truths = reshapeChain(np.loadtxt(args.truths))
 
-nburn = int( np.round( burn_frac * len(chain) ) )
-chain,Zdat,lnlike  = chain[nburn:],Zdat[nburn:],lnlike[nburn:]
+Zdat = []
+for i in range(nplanets-1):
+	j = get_j_delta(periods[i],periods[i+1])[0]
+	eccvecs = evals[:,(i,i+1,i+2,i+3)]
+	Zdat.append( np.array([Zfn(eccs,j) for eccs in eccvecs ]) )
 
-pl.hist(lnlike[lnlike>minlnlike],bins=100)
-if args.file:
-	pl.savefig("%s_chi2.png"%args.file)
 
-triangle.corner(np.hstack( ( chain[:,(0,3)],Zdat ) )[lnlike > minlnlike] , labels = ('m','m1','Zx','Zy','|Z|') )
-if args.file:
-	pl.savefig("%s_mass-vs-Z.png"%args.file)
+best,best_lnlike= chain[np.argmax(lnlike)],np.max(lnlike)
+with open("summary.txt",'w') as fi:
+	fi.write("Best fit parameters: (log-likelihood=%.1f)\n "%best_lnlike )
+	best_string = "\t".join(map(lambda x: "%.4g"%x ,best))
+	fi.write(best_string)
+	fi.write('\n\n')
+	for i in range(nplanets):
+		fi.write("Planet %d:\n"%i)
+		fi.write("\tMass: %.2g, %.2g, %.2g\n"%dataMedianAndRange( masses[:,i] ))
+		fi.write("\tex: %.2f, %.2f, %.2f\n"%dataMedianAndRange( evals[:,i] ))
+		fi.write("\tey: %.2f, %.2f, %.2f\n"%dataMedianAndRange( evals[:,i+1]))
+np.savetxt("bestpars.txt",best)
 
-triangle.corner(chain[lnlike>minlnlike][:,:6] , labels = ('m','ex','ey','m1','ex1','ey1') )
-if args.file:
-	pl.savefig("%s_mass-vs-ecc.png"%args.file)
+if not args.noPlots:
+	pl.hist(lnlike[lnlike>minlnlike],bins=100)
+	if args.file:
+		pl.savefig("%s_chi2.png"%args.file)
+	
+	for i in range(nplanets-1):
+		triangle.corner(np.hstack( ( chain[:,(3*i,3*(i+1))],Zdat[i] ) )[lnlike > minlnlike] , labels = ('m','m1','Zx','Zy','|Z|') )
+		if args.file:
+			pl.savefig("%s_mass-vs-Z_%d.png"%(args.file,i))
+	
 
-pl.show()
+	lbls = [['m%d'%i] for i in range(nplanets)] + [('ex%d'%i,'ey%d'%i) for i in range(nplanets)] 
+	flatlabels =[]
+	for lbl in lbls:
+		for y in lbl:
+			flatlabels.append(y)
+
+	lbls = tuple(flatlabels)
+	plotData = np.array([reshapeChain(x) for x in chain[lnlike>minlnlike]])
+	triangle.corner(plotData , labels = lbls ,truths=truths)
+
+	if args.file:
+		pl.savefig("%s_mass-vs-ecc.png"%args.file)
+	
+	nbody_fit.CoplanarParametersTTVPlot(best)
+	if args.file:
+		pl.savefig("%s_ttvs_best.png"%args.file)
+#
+	pl.show()

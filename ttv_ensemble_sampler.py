@@ -89,7 +89,7 @@ if __name__=="__main__":
 			print "Aborting..."
 			sys.exit()
 	else:
-		pars0 = append(ones(nplanets) * 1.e-5 , zeros(2*nplanets) )
+		pars0 = append(ones(nplanets) * 3.e-6 , zeros(2*nplanets) )
 #----------------------------------------------------------------------------------
 	sys.path.insert(0,TTVFAST_PATH)
 	import PyTTVFast as ttv
@@ -131,14 +131,22 @@ if __name__=="__main__":
 #-----------------------------------------------------------------
 #	Set up sampler and walkers
 #-----------------------------------------------------------------	
+ 	lnlike = None
+	old_best= None
+	old_best_lnlike = None
+	reset = False
+	Nmeasured = 0
+
 	if restart:
 		# Read in old walkers
 		print "Loading chain from file..."
 		p = loadtxt('chain.dat.gz')[-nwalkers:,:]
 		lnlike = loadtxt('chain.lnlike.dat.gz')[-nwalkers:]
-		old_best = p[argmax(lnlike)]
+		print p.shape,lnlike.shape
+		old_best= p[argmax(lnlike)]
+		old_best_lnlike = fit(old_best)
 		print "%d x %d chain loaded"%p.shape
-		print "Best likelihood: %.1f"%max(lnlike)
+		print "Best likelihood: %.1f"%old_best_lnlike
 		
 	else:
 		# Initialize new walkers
@@ -155,10 +163,6 @@ if __name__=="__main__":
 	print "Running with %d parallel threads" % nthreads
 	sys.stdout.flush()
 
- 	lnlike = None
-	old_best_lnlike = None
-	reset = False
-	Nmeasured = 0
 
 	if not restart or args.erase:
 		with gzip.open('chain.dat.gz', 'w') as out:
@@ -171,7 +175,6 @@ if __name__=="__main__":
 # MAIN LOOP
 #------------------------------------------------
 	# --- Burn-in Phase --- #
-	fancystart = True
 	
 	if not restart and not args.noloop:
 	# If starting MCMC for first time, generate some samples to find a starting place from
@@ -181,21 +184,30 @@ if __name__=="__main__":
 		print "Burn-in complete, starting main loop"
 
 		old_best = sampler.flatchain[argmax(sampler.flatlnprobability)]
+		old_best_lnlike = fit(old_best)
 	
 	if (not restart or args.erase) and not args.noloop:
 	# If starting MCMC for the first time or if the old chains are going to be erased,
 	# try to use Levenberg-Marquardt to find the best parameters to start new walkers around
 		shrink = 20.
-		print "Starting L-M least-squares from likelihood: %.1f"%fit(old_best)
-		try:
-			out=nbody_fit.CoplanarParametersTTVFit(old_best)
-			bestfit,cov = out[:2]
+		print "Starting L-M least-squares from likelihood: %.1f"%old_best_lnlike
+#		try:
+		out=nbody_fit.CoplanarParametersTTVFit(old_best)
+		bestfit,cov = out[:2]
+		if fit(bestfit) > old_best_lnlike:
 			print "Max likelihood via L-M least-squares: %.1f"%fit(bestfit)
 			p = random.multivariate_normal(bestfit,cov/(shrink*shrink),size=nwalkers)
-		except:
-			print "L-M least-square couldn't find a minimum to initialize around..."
+		else:
+			print "L-M least-square couldn't find a minimum to initialize around... Returned:"
+			print fit(bestfit)
 			print "Initializing from the best walkers so far..."
-			p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
+			if not restart:
+				p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
+#		except:
+#			print "L-M least-square couldn't find a minimum to initialize around..."
+#			print "Initializing from the best walkers so far..."
+#			if not restart:
+#				p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
 		
 	sampler.reset()
 		
