@@ -182,7 +182,6 @@ class MultiplanetSimpleAnalyticTTVSystem(object):
 		
 		return leastsq(objectivefn, params0,full_output=1)
 
-	
 	#	#	#	#	#
 if __name__=="__main__":
 	import glob

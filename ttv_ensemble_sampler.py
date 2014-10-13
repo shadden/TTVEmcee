@@ -3,6 +3,7 @@ who =os.popen("whoami")
 if who.readline().strip() =='samuelhadden':
 	print "On laptop..."
 	TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
+	ANALYTIC_TTV_PATH = "/Users/samuelhadden/13_HighOrderTTV/TTVEmcee"
 else:
 	print "On Quest..."
 	TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
@@ -17,9 +18,9 @@ import multiprocessing as multi
 from numpy import *
 from fitnessNEW import *
 import emcee
-from emcee import PTSampler
 import matplotlib.pyplot as pl
 from argparse import ArgumentParser
+
 
 #------------------------------------------
 #  MAIN
@@ -37,10 +38,11 @@ if __name__=="__main__":
 	parser.add_argument('--nthreads', metavar='N', type=int, default=multi.cpu_count(), help='number of concurrent threads to use')
 	parser.add_argument('-P','--parfile', metavar='FILE', default=None, help='Text file containing parameter values to initialize walker around.')
 	parser.add_argument('--noloop', default=False, action='store_true', help='Run set-up but do not excecute the MCMC main loop')
-	
+	parser.add_argument('--analytic',default=False,action='store_true', help='Run MCMC using first-order analytic TTV formula to compute the likelihood of parameters')
 	parser.add_argument('--input','-I',metavar='FILE',default='planets.txt',help='File that lists the names of the files containing input transits')
-	
-#----------------------------------------------------------------------------------
+
+	#----------------------------------------------------------------------------------
+	# command-line arguments:
 
 	args = parser.parse_args()
 	restart = args.restart
@@ -50,37 +52,38 @@ if __name__=="__main__":
 	nthreads=args.nthreads
 	nburn = args.nburn
 	infile = args.input
-	
-#----------------------------------------------------------------------------------
+	nbody = not args.analytic
 
-		
+	#----------------------------------------------------------------------------------
+
+	
 	with open(infile,'r') as fi:
 		infiles = [ line.strip() for line in fi.readlines()]
-		
+	
 	input_data =[]
 	for file in infiles:
 		input_data.append( loadtxt(file) )
 	nplanets = len(input_data)
-	
-	
+
+
 	while min( array([ min(tr[:,0]) for tr in input_data])  ) != 0:
 		print "re-numbering transits..."
 		for data in input_data:
 			data[:,0] -= 1
 
-#----------------------------------------------------------------------------------
-# Get input TTV data and remove outliers
-#----------------------------------------------------------------------------------
+	#----------------------------------------------------------------------------------
+	# Get input TTV data and remove outliers
+	#----------------------------------------------------------------------------------
 	trim = None
 	if trim:
 		input_dataTR = TrimData(input_data,tol=3.)
 		for i,new_transits in enumerate(input_dataTR):
 			if len(new_transits) != len(input_data[i]):
 				print "Removed %d transit(s) from inner planet:" %( len(input_data[i]) - len(new_transits) )
-		
+	
 				for bad in set(input_data[i][:,0]).difference( set(input_dataTR[i][:,0]) ):
 					print "\t%d"%bad
-	
+
 	if args.parfile != None:
 		try:
 			pars0 = loadtxt(args.parfile)
@@ -88,50 +91,115 @@ if __name__=="__main__":
 			print "Parameter file %s not found!"%args.parfile
 			print "Aborting..."
 			sys.exit()
+
 	else:
 		pars0 = append(ones(nplanets) * 3.e-6 , zeros(2*nplanets) )
-#----------------------------------------------------------------------------------
-	sys.path.insert(0,TTVFAST_PATH)
-	import PyTTVFast as ttv
+	#----------------------------------------------------------------------------------
 	ndim = 5*nplanets-2
-	nbody_fit = ttv.TTVFitnessAdvanced(input_data)
-#----------------------------------------------------------------------		
-	# Priors function
 
-	def fit(x):
-		# Masses must be positive
-		masses = (x[::3])[:nplanets]
-		bad_masses = any(masses < 0.0)
-		if bad_masses:
-			return -inf
-		
-		# Mean anomalies lie between -pi and pi
-		meanAnoms = x[3*nplanets+1::2]
-		bad_angles = any( meanAnoms > pi)
-		if bad_angles:
-			return -inf
-		
-		# Eccentricities must be smaller than 1
-		exs,eys =(x[1::3])[:nplanets],(x[2::3])[:nplanets]
-		bad_eccs = any(exs**2 +eys**2 >= 0.9**2)
-		if bad_eccs:
-			return -inf
-		
-		return nbody_fit.CoplanarParametersFitness(x)
+	if nbody:
+	#----------------------------------------------------------------------		
+	#	Compute log-likelihoods from N-body integration
+	#----------------------------------------------------------------------
+		sys.path.insert(0,TTVFAST_PATH)
+		import PyTTVFast as ttv
+		nbody_fit = ttv.TTVFitnessAdvanced(input_data)
 
-	def initialize_walkers(nwalk,p0):
-		"""Initialize walkers around point p0 = [ mass1,mass2,...,ex1,ey1,ex2,ey2,...,P2_obs/P1_obs,..., dL2_obs,...]"""
-		masses = p0[:nplanets]
-		evecs = p0[nplanets:].reshape(-1,2)
-		ics = nbody_fit.GenerateRandomInitialConditions(masses,0.1,evecs,0.002,nwalk)
-		return array([ nbody_fit.convert_params(ic) for ic in ics])
+		# Likelihood function
+		#--------------------------------------------
+		def fit(x):
+			# Masses must be positive
+			masses = (x[::3])[:nplanets]
+			bad_masses = any(masses < 0.0)
+			if bad_masses:
+				return -inf
+	
+			# Mean anomalies lie between -pi and pi
+			meanAnoms = x[3*nplanets+1::2]
+			bad_angles = any( abs(meanAnoms) > pi)
+			if bad_angles:
+				return -inf
+	
+			# Eccentricities must be smaller than 1
+			exs,eys =(x[1::3])[:nplanets],(x[2::3])[:nplanets]
+			bad_eccs = any(exs**2 +eys**2 >= 0.9**2)
+			if bad_eccs:
+				return -inf
+	
+			return nbody_fit.CoplanarParametersFitness(x)
+	
+		# Walker initialization
+		#--------------------------------------------
+		def initialize_walkers(nwalk,p0):
+			"""Initialize walkers around point p0 = [ mass1,mass2,...,ex1,ey1,ex2,ey2,...,P2_obs/P1_obs,..., dL2_obs,...]"""
+			masses = p0[:nplanets]
+			evecs = p0[nplanets:].reshape(-1,2)
+			ics = nbody_fit.GenerateRandomInitialConditions(masses,0.1,evecs,0.002,nwalk)
+			return array([ nbody_fit.convert_params(ic) for ic in ics])
+	#----------------------------------------------------------------------
 
-	means=[]
-	p = zeros((nwalkers, ndim))
+	else:
+	#----------------------------------------------------------------------		
+	#	Compute log-likelihoods from analytic first-order formula
+	#----------------------------------------------------------------------
+		sys.path.insert(0,ANALYTIC_TTV_PATH)
+		import AnaltyticMultiplanetFit as ttv
+		analytic_fit = ttv.MultiplanetSimpleAnalyticTTVSystem(input_data)
+
+		# Likelihood function
+		#--------------------------------------------
+		def fit(x):
+			# Masses must be positive
+			masses = (x[::3])[:nplanets]
+			bad_masses = any(masses < 0.0)
+			if bad_masses:
+				return -inf
+	
+			# Mean anomalies lie between -pi and pi
+			meanAnoms = x[3*nplanets+1::2]
+			bad_angles = any( abs(meanAnoms) > pi)
+			if bad_angles:
+				return -inf
+	
+			# Eccentricities must be smaller than 1
+			exs,eys =(x[1::3])[:nplanets],(x[2::3])[:nplanets]
+			bad_eccs = any(exs**2 +eys**2 >= 0.9**2)
+			if bad_eccs:
+				return -inf
+	
+			return analytic_fit.parameterFitness(x)
+
+		# Walker initialization
+		#--------------------------------------------
+		def initialize_walkers(nwalk):
+			"""Initialize walkers around a best initial point"""
+			bestfit = -inf
+			periods = analytic_fit.periodEstimates
+			t0s = analytic_fit.tInitEstimates
+			Lvals =  -2 * pi/periods * ( t0s - t0s[0])
+			PersAndLs = vstack(( periods/periods[0], Lvals  )).T[1:]
+			count = 0
+			
+			while bestfit == -inf:
+			
+				randStart = array([(1.e-5,0.02 * random.randn(), 0.02 * random.randn()) for i in range(analytic_fit.nPlanets)])
+				randStart = append( randStart , PersAndLs.reshape(-1) )
+
+				out = analytic_fit.bestFitParameters(randStart)
+				best,cov = out[:2]
+				bestfit = fit(best)
+				count+=1
+				assert count<101,print "Can't find a valid start point!!!"
+
+			return random.multivariate_normal(best,cov/(50.),nwalk)
+
+#----------------------------------------------------------------------
+
 #-----------------------------------------------------------------
 #	Set up sampler and walkers
 #-----------------------------------------------------------------	
- 	lnlike = None
+	means=[]
+	lnlike = None
 	old_best= None
 	old_best_lnlike = None
 	reset = False
@@ -150,8 +218,11 @@ if __name__=="__main__":
 		
 	else:
 		# Initialize new walkers
-		p=initialize_walkers(nwalkers,pars0)
-	
+		if nbody:
+			p=initialize_walkers(nwalkers,pars0)
+		else:
+			p=initialize_walkers(nwalkers)
+
 		for x in p.reshape(-1,ndim):
 			assert fit(x) > -inf, "Bad IC generated!"
 		
@@ -172,9 +243,8 @@ if __name__=="__main__":
 
 	acorstring = ('\t'.join(["M%d\tEX%d\tEY%d"%(d,d,d) for d in range(nplanets)]))+'\t'+('\t'.join(["P%d\tdL%d"%(d,d) for d in range(1,nplanets)]))
 #------------------------------------------------
-# MAIN LOOP
+# --- Burn-in Phase and Minimum Search --- #
 #------------------------------------------------
-	# --- Burn-in Phase --- #
 	
 	if not restart and not args.noloop:
 	# If starting MCMC for first time, generate some samples to find a starting place from
@@ -186,14 +256,15 @@ if __name__=="__main__":
 		old_best = sampler.flatchain[argmax(sampler.flatlnprobability)]
 		old_best_lnlike = fit(old_best)
 	
-	if (not restart or args.erase) and not args.noloop:
-	# If starting MCMC for the first time or if the old chains are going to be erased,
+	if (not restart or args.erase) and nbody and not args.noloop:
+	# If starting N-body MCMC for the first time or if the old chains are going to be erased,
 	# try to use Levenberg-Marquardt to find the best parameters to start new walkers around
+	#
 		shrink = 20.
 		print "Starting L-M least-squares from likelihood: %.1f"%old_best_lnlike
-#		try:
 		out=nbody_fit.CoplanarParametersTTVFit(old_best)
 		bestfit,cov = out[:2]
+
 		if fit(bestfit) > old_best_lnlike:
 			print "Max likelihood via L-M least-squares: %.1f"%fit(bestfit)
 			p = random.multivariate_normal(bestfit,cov/(shrink*shrink),size=nwalkers)
@@ -203,13 +274,11 @@ if __name__=="__main__":
 			print "Initializing from the best walkers so far..."
 			if not restart:
 				p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
-#		except:
-#			print "L-M least-square couldn't find a minimum to initialize around..."
-#			print "Initializing from the best walkers so far..."
-#			if not restart:
-#				p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
 		
 	sampler.reset()
+#------------------------------------------------
+# MAIN LOOP
+#------------------------------------------------
 		
 	nloops = int(ceil(nensembles/nthin))
 	for k in range(nloops):
