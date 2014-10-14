@@ -189,7 +189,7 @@ if __name__=="__main__":
 				best,cov = out[:2]
 				bestfit = fit(best)
 				count+=1
-				assert count<101,print "Can't find a valid start point!!!"
+				assert count<101, "Can't find a valid start point!!!"
 
 			return random.multivariate_normal(best,cov/(50.),nwalk)
 

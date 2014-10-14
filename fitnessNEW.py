@@ -1,6 +1,7 @@
 from numpy import *
 
 import sys
+from itertools import combinations
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
 
 import LaplaceCoefficients as LC
@@ -9,6 +10,12 @@ from scipy.optimize import curve_fit
 #---------------------------------------------------
 # miscellaneous
 #---------------------------------------------------
+def linefit(x,y):
+	assert len(x) == len(y), "Cannot fit line with different length dependent and independent variable data!"
+	const = np.ones(len(y))
+	A = np.vstack([const,x]).T
+	return np.linalg.lstsq(A,y)[0]
+
 def linearfit(x,y):
       assert len(x)==len(y), "length of arrays unequal! x: {}, y: {}".format(len(x),len(y))
       a = array([ones(len(x)),x]).T
@@ -121,6 +128,12 @@ def time_to_ttv(n,time):
 	a = array([ones(len(time)),n]).T
 	b,m=linalg.lstsq(a, time)[0]
 	return array(time-m*n-b)
+
+			
+				
+			
+			
+
 #---------------------------------------------------
 # Recenter walkers
 #---------------------------------------------------
@@ -637,6 +650,10 @@ class fitness(object):
 		for i in range(1,6):
 			lx,ly = self.dl1O2O(i)
 			print "%d / %d \t %.3f  \t %.3f + i*%.3f" % (i,i,0.,lx,ly)
+
+		
+			
+
 	########################################################################################
 	########################################################################################
 	########################################################################################
