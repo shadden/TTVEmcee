@@ -147,7 +147,7 @@ if __name__=="__main__":
 	#----------------------------------------------------------------------
 		sys.path.insert(0,ANALYTIC_TTV_PATH)
 		import AnaltyticMultiplanetFit as ttv
-		analytic_fit = ttv.MultiplanetSimpleAnalyticTTVSystem(input_data)
+		analytic_fit = ttv.MultiplanetAnalyticTTVSystem(input_data)
 
 		# Likelihood function
 		#--------------------------------------------

@@ -20,9 +20,9 @@ def delta(pratio,j,k):
 def get_res(pratio):
 	return np.argmin([np.abs(delta(pratio,j,j-1)) for j in range(2,6)]) + 2
 	
-class MultiplanetSimpleAnalyticTTVSystem(object):
-	def __init__(self,inputData,deltaLimit=0.1):
-
+class MultiplanetAnalyticTTVSystem(object):
+	def __init__(self,inputData,deltaLimit=0.06):
+		""" :deltaLimit float: limiting absolute value of delta for which to include 2S TTV component"""
 		# Store observed transit information
 		self.nPlanets = len(inputData)
 		self.observedData= inputData
@@ -223,7 +223,7 @@ class MultiplanetSimpleAnalyticTTVSystem(object):
 				TTVs[j] += period[j] / np.pi * ( V1x * np.sin(angleResOuter))
 
 			# Add contribution of 2S term if delta is small
-			if data['Delta'] < 0.06:
+			if np.abs(data['Delta']) < deltaLimit:
 				jRes,Vx,Vy,V1x,V1y = self.complexTTVAmplitudes2S(parameters,periodRatio,data)
 				omegaRes = 2.0 * np.pi * ( jRes/period[j] - (jRes-2)/period[i] )
 				angleResInner = omegaRes * transitTimes[i] + jRes * meanLong[j] - (jRes - 2) * meanLong[i]
@@ -344,7 +344,7 @@ if __name__=="__main__":
 		inptData.append(NandT)
 	
 	# Create an analytic fit object based on the N-body transit times
-	analyticFit = MultiplanetSimpleAnalyticTTVSystem(inptData)
+	analyticFit = MultiplanetAnalyticTTVSystem(inptData)
 
 	# Convert parameters to form used by analytic fit
 	mass = pars[:,0]
@@ -390,12 +390,4 @@ if __name__=="__main__":
 	
 
 	analyticFit.parameterAmplitudeTables(new_params)
-# 	print "expected first transits: "
-# 	print -pers /(2. * np.pi) * meanLong
-# 	print "observed first transits: "
-# 	print trTimes[0][0],trTimes[1][0]
-# 	print "analytic first transits (1): "
-# 	print transits[0][0,1],transits[1][0,1]
-# 	print "analytic first transits (2): "
-# 	print new_transits[0][0,1],new_transits[1][0,1]
 
