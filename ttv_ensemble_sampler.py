@@ -7,6 +7,7 @@ if who.readline().strip() =='samuelhadden':
 else:
 	print "On Quest..."
 	TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
+	ANALYTIC_TTV_PATH = "/projects/b1002/shadden/7_AnalyticTTV/01_MCMC/00_source_code"
 who.close()
 
 import sys
@@ -52,7 +53,7 @@ if __name__=="__main__":
 	nthreads=args.nthreads
 	nburn = args.nburn
 	infile = args.input
-	nbody = not args.analytic
+	nbody = (not args.analytic)
 
 	#----------------------------------------------------------------------------------
 

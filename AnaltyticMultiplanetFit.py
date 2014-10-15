@@ -4,7 +4,7 @@ import LaplaceCoefficients as LC
 from scipy.optimize import curve_fit,leastsq
 import sys
 sys.path.append("/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface")
-import PyTTVFast as ttv
+#import PyTTVFast as ttv
 
 def linefit(x,y,sigma=None):
 	assert len(x) == len(y), "Cannot fit line with different length dependent and independent variable data!"
@@ -184,6 +184,8 @@ class MultiplanetSimpleAnalyticTTVSystem(object):
 
 	#	#	#	#	#
 if __name__=="__main__":
+	pass
+if False:
 	import glob
 
 	pars = np.loadtxt('inpars.txt')
