@@ -320,7 +320,7 @@ class MultiplanetAnalyticTTVSystem(object):
 	def parameterTransitTimes(self,params,Only_1S=False):
 		massesAndEccs = params[:3*self.nPlanets]
 		ey0 = massesAndEccs[2]
-		periodsAndMeanLongs = np.hstack(( np.array( (1.0,2.0*ey0 ) ),params[3*self.nPlanets:]))
+		periodsAndMeanLongs = np.hstack(( np.array( (1.0, 0.0) ),params[3*self.nPlanets:]))
 		#
 		
 		if Only_1S:
@@ -400,6 +400,15 @@ if __name__=="__main__":
 		NandT=np.vstack(( np.arange(len(times)) , times , 1.e-5*np.ones(len(times)) )).T
 		inptData.append(NandT)
 	
+	noiseLvl = 2.e-4
+	pl.figure(1)
+	for i,times in enumerate(trTimes):
+		nTransits = len(times)
+		noise = np.random.normal(0.,noiseLvl,nTransits)
+		noisyData=np.vstack(( np.arange(nTransits) , times + noise , noiseLvl*np.ones(len(times)) )).T
+		np.savetxt("planet%d.txt"%i,noisyData)
+		pl.errorbar(noisyData[:,1],linefit_resids(noisyData[:,0],noisyData[:,1],noisyData[:,2]),yerr=noisyData[:,2],fmt='s')
+		
 	# Create an analytic fit object based on the N-body transit times
 	analyticFit = MultiplanetAnalyticTTVSystem(inptData)
 
@@ -420,14 +429,15 @@ if __name__=="__main__":
 	transits = analyticFit.TransitTimes(massAndEccs,persAndLs)
 			
 	# Plot N-body and analytic transit times
+	
 	for i,timedata in enumerate(zip(transits,inptData)):
 		times,obstimes = timedata
-		pl.figure(1)
+		pl.figure(2)
 		pl.subplot(310 + i + 1)
 		pl.plot(times[:,1])
 		pl.plot(obstimes[:,1])
 	
-		pl.figure(2)	
+		pl.figure(3)	
 		pl.subplot(310 + i + 1)
 		ttvs = linefit_resids(times[:,0],times[:,1])
 		pl.plot(times[:,1],ttvs,'k.')		
@@ -447,4 +457,5 @@ if __name__=="__main__":
 	
 
 	analyticFit.parameterAmplitudeTables(new_params)
+	np.savetxt("starting_paramters.txt",new_params)
 

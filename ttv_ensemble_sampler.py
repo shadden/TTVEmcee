@@ -160,7 +160,7 @@ if __name__=="__main__":
 	
 			# Mean anomalies lie between -pi and pi
 			meanAnoms = x[3*nplanets+1::2]
-			bad_angles = any( abs(meanAnoms) > pi)
+			bad_angles = any( abs(meanAnoms) > 2*pi)
 			if bad_angles:
 				return -inf
 	
@@ -182,17 +182,28 @@ if __name__=="__main__":
 			Lvals =  -2 * pi/periods * ( t0s - t0s[0])
 			PersAndLs = vstack(( periods/periods[0], Lvals  )).T[1:]
 			count = 0
-			
-			while bestfit == -inf:
-			
-				randStart = array([(1.e-5,0.02 * random.randn(), 0.02 * random.randn()) for i in range(analytic_fit.nPlanets)])
-				randStart = append( randStart , PersAndLs.reshape(-1) )
-
-				out = analytic_fit.bestFitParameters(randStart)
+			if args.parfile:
+				startpars= loadtxt(args.parfile)
+				out = analytic_fit.bestFitParameters(startpars)
 				best,cov = out[:2]
+				print analytic_fit.parameterFitness(best)
+				print best[3*nplanets:].reshape(-1,2)
 				bestfit = fit(best)
-				count+=1
-				assert count<101, "Can't find a valid start point!!!"
+				print best[:3*nplanets].reshape(-1,3)
+				print best[3*nplanets:].reshape(-1,2)
+				print bestfit
+			else:
+				while bestfit == -inf:
+			
+					randStart = array([(1.e-5,0.02 * random.randn(), 0.02 * random.randn()) for i in range(analytic_fit.nPlanets)])
+					randStart = append( randStart , PersAndLs.reshape(-1) )
+
+					out = analytic_fit.bestFitParameters(randStart)
+					best,cov = out[:2]
+					best[3*nplanets+1::2] = mod(best[3*nplanets+1::2]+pi,2*pi)-pi
+					bestfit = fit(best)
+					count+=1
+					assert count<101, "Can't find a valid start point!!!"
 
 			return random.multivariate_normal(best,cov/(50.),nwalk)
 
@@ -224,6 +235,7 @@ if __name__=="__main__":
 		if nbody:
 			p=initialize_walkers(nwalkers,pars0)
 		else:
+			print "Looking for a good starting point..."
 			p=initialize_walkers(nwalkers)
 
 		for x in p.reshape(-1,ndim):
