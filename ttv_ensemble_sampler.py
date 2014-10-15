@@ -94,8 +94,15 @@ if __name__=="__main__":
 			sys.exit()
 
 	else:
+<<<<<<< Updated upstream
 		pars0 = append(ones(nplanets) * 3.e-6 , zeros(2*nplanets) )
 	#----------------------------------------------------------------------------------
+=======
+		pars0 = append(ones(nplanets) * 6.e-6 , zeros(2*nplanets) )
+#----------------------------------------------------------------------------------
+	sys.path.insert(0,TTVFAST_PATH)
+	import PyTTVFast as ttv
+>>>>>>> Stashed changes
 	ndim = 5*nplanets-2
 
 	if nbody:

@@ -46,7 +46,7 @@ def dataMedianAndRange(data,q=90.0):
 	dq = 0.5 * (100. - q)
 	lo = np.percentile(data, dq)
 	hi = np.percentile(data,100. - dq)
-	return (lo,med,hi)
+	return (med,hi-med,lo-med)
 
 #innerttvs,outerttvs = np.loadtxt('inner.ttv'),np.loadtxt('outer.ttv')
 with open('planets.txt','r') as fi:
@@ -77,6 +77,7 @@ def reshapeChain(walkerPosition):
 	evals = walkerPosition[e_indices,].reshape(-1,2)
 	rMatrix = np.array([[0.,1.],[-1.,0]])
 	return np.append(massvals,np.dot(evals,rMatrix).reshape(-1)) 
+
 def get_j_delta(p1,p2):
 	pratio = np.min((p2/p1,p1/p2))
 	j = np.argmin([abs((j-1)*pratio/j-1) for j in range(2,6)]) + 2
@@ -107,6 +108,8 @@ def Zfn(evals,j):
 
 if args.truths:
 	truths = reshapeChain(np.loadtxt(args.truths))
+else:
+	truths = None
 
 Zdat = []
 for i in range(nplanets-1):
@@ -123,9 +126,13 @@ with open("summary.txt",'w') as fi:
 	fi.write('\n\n')
 	for i in range(nplanets):
 		fi.write("Planet %d:\n"%i)
-		fi.write("\tMass: %.2g, %.2g, %.2g\n"%dataMedianAndRange( masses[:,i] ))
-		fi.write("\tex: %.2f, %.2f, %.2f\n"%dataMedianAndRange( evals[:,i] ))
-		fi.write("\tey: %.2f, %.2f, %.2f\n"%dataMedianAndRange( evals[:,i+1]))
+		fi.write("(Median,+,-)\n")
+		fi.write("\t68 pct. Mass: %.2g, %.2g, %.2g\n"%dataMedianAndRange( masses[:,i], q = 68.))
+		fi.write("\t95 pct. Mass: %.2g, %.2g, %.2g\n"%dataMedianAndRange( masses[:,i], q = 95. ))
+		fi.write("\t68 pct. ex: %.3f, %.3f, %.3f\n"%dataMedianAndRange( evals[:,i], q = 68. ))
+		fi.write("\t95 pct. ex: %.3f, %.3f, %.3f\n"%dataMedianAndRange( evals[:,i], q = 95. ))
+		fi.write("\t68 pct. ey: %.3f, %.3f, %.3f\n"%dataMedianAndRange( evals[:,i+1], q = 68.))
+		fi.write("\t95 pct. ey: %.3f, %.3f, %.3f\n"%dataMedianAndRange( evals[:,i+1], q = 95. ))
 np.savetxt("bestpars.txt",best)
 
 if not args.noPlots:
@@ -147,7 +154,11 @@ if not args.noPlots:
 
 	lbls = tuple(flatlabels)
 	plotData = np.array([reshapeChain(x) for x in chain[lnlike>minlnlike]])
-	triangle.corner(plotData , labels = lbls ,truths=truths)
+	minMass = np.min( plotData[:,:3].reshape(-1) )
+	maxMass = np.max( plotData[:,:3].reshape(-1) )
+	maxEcc = np.max( np.abs(plotData[:,3:].reshape(-1) ))
+	extnts = [ 1.0 for i in range(nplanets) ] + [ (-maxEcc,maxEcc) for i in range(2*nplanets)]
+	triangle.corner(plotData , labels = lbls ,truths=truths,extents=extnts)
 
 	if args.file:
 		pl.savefig("%s_mass-vs-ecc.png"%args.file)
