@@ -9,7 +9,6 @@ else:
 	TTVFAST_PATH = "/projects/b1002/shadden/7_AnalyticTTV/03_TTVFast/PyTTVFast"
 who.close()
 sys.path.insert(0,TTVFAST_PATH)
-import PyTTVFast as ttv
 import triangle
 import numpy as np
 from argparse import ArgumentParser
@@ -20,9 +19,14 @@ parser.add_argument('--minlnlike','-L', metavar='F', type=float, default= -np.in
 parser.add_argument('--file','-f',metavar='PREFIX',default=None, help='Save the generated plots as PREFIX_[plot type].png')
 parser.add_argument('--noPlots',default=False, action='store_true' ,help='Don\'t make plots')
 parser.add_argument('--truths',metavar='FILE',default=None ,help='File containing the true masses and eccentricity components to show on triangle plot')
+parser.add_argument('--analytic',default=False, action='store_true' ,help='Show plots using analytic TTV approximation')
 
 args = parser.parse_args()
 minlnlike = args.minlnlike
+if args.analytic:
+	import  AnaltyticMultiplanetFit as ttv
+else:
+	import PyTTVFast as ttv
 
 with open('planets.txt','r') as fi:
 	infiles = [ line.strip() for line in fi.readlines()]
@@ -30,7 +34,10 @@ input_data= []
 for file in infiles:
 	input_data.append( np.loadtxt(file) )
 nplanets = len(input_data)
-nbody_fit = ttv.TTVFitnessAdvanced(input_data)
+if args.analytic:
+	fit = ttv.MultiplanetSimpleAnalyticTTVSystem(input_data)
+else:
+	fit = ttv.TTVFitnessAdvanced(input_data)
 
 def linefit(x,y):
 	""" 
@@ -163,10 +170,16 @@ if not args.noPlots:
 	if args.file:
 		pl.savefig("%s_mass-vs-ecc.png"%args.file)
 	
-	nbody_fit.CoplanarParametersTTVPlot(best)
+	if args.analytic:
+		fit.parameterTTVPlot(best)
+	else:
+		fit.CoplanarParametersTTVPlot(best)
 	if args.file:
 		pl.savefig("%s_ttvs_best.png"%args.file)
-	nbody_fit.CoplanarParametersTTVResidPlot(best)
+	if args.analytic:
+		fit.parameterTTVResidualsPlot(best)
+	else:
+		fit.CoplanarParametersTTVResidPlot(best)
 	if args.file:
 		pl.savefig("%s_ttvResids_best.png"%args.file)
 #
