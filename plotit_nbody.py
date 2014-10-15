@@ -166,5 +166,8 @@ if not args.noPlots:
 	nbody_fit.CoplanarParametersTTVPlot(best)
 	if args.file:
 		pl.savefig("%s_ttvs_best.png"%args.file)
+	nbody_fit.CoplanarParametersTTVResidPlot(best)
+	if args.file:
+		pl.savefig("%s_ttvResids_best.png"%args.file)
 #
 	pl.show()
