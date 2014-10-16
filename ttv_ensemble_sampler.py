@@ -176,12 +176,6 @@ if __name__=="__main__":
 		#--------------------------------------------
 		def initialize_walkers(nwalk):
 			"""Initialize walkers around a best initial point"""
-			bestfit = -inf
-			periods = analytic_fit.periodEstimates
-			t0s = analytic_fit.tInitEstimates
-			Lvals =  -2 * pi/periods * ( t0s - t0s[0])
-			PersAndLs = vstack(( periods/periods[0], Lvals  )).T[1:]
-			count = 0
 			if args.parfile:
 				startpars= loadtxt(args.parfile)
 				out = analytic_fit.bestFitParameters(startpars)
@@ -193,6 +187,12 @@ if __name__=="__main__":
 				print best[3*nplanets:].reshape(-1,2)
 				print bestfit
 			else:
+				bestfit = -inf
+				periods = analytic_fit.periodEstimates
+				t0s = analytic_fit.tInitEstimates
+				Lvals =  -2 * pi/periods * ( t0s - t0s[0])
+				PersAndLs = vstack(( periods/periods[0], Lvals  )).T[1:]
+				count = 0
 				while bestfit == -inf:
 			
 					randStart = array([(1.e-5,0.02 * random.randn(), 0.02 * random.randn()) for i in range(analytic_fit.nPlanets)])
@@ -200,7 +200,7 @@ if __name__=="__main__":
 
 					out = analytic_fit.bestFitParameters(randStart)
 					best,cov = out[:2]
-					best[3*nplanets+1::2] = mod(best[3*nplanets+1::2]+pi,2*pi)-pi
+					#best[3*nplanets+1::2] = mod(best[3*nplanets+1::2]+pi,2*pi)-pi
 					bestfit = fit(best)
 					count+=1
 					assert count<101, "Can't find a valid start point!!!"
