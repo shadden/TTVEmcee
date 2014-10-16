@@ -39,7 +39,8 @@ if __name__=="__main__":
 	parser.add_argument('--nthreads', metavar='N', type=int, default=multi.cpu_count(), help='number of concurrent threads to use')
 	parser.add_argument('-P','--parfile', metavar='FILE', default=None, help='Text file containing parameter values to initialize walker around.')
 	parser.add_argument('--noloop', default=False, action='store_true', help='Run set-up but do not excecute the MCMC main loop')
-	parser.add_argument('--analytic',default=False,action='store_true', help='Run MCMC using first-order analytic TTV formula to compute the likelihood of parameters')
+	parser.add_argument('--analytic',default=False,action='store_true', help='Run MCMC using analytic TTV formula to compute the likelihood of parameters')
+	parser.add_argument('--first_order',default=False,action='store_true', help='Use only the 1S term for analytic TTVs')
 	parser.add_argument('--input','-I',metavar='FILE',default='planets.txt',help='File that lists the names of the files containing input transits')
 
 	#----------------------------------------------------------------------------------
@@ -54,6 +55,7 @@ if __name__=="__main__":
 	nburn = args.nburn
 	infile = args.input
 	nbody = (not args.analytic)
+	first_order = args.first_order
 
 	#----------------------------------------------------------------------------------
 
@@ -170,7 +172,7 @@ if __name__=="__main__":
 			if bad_eccs:
 				return -inf
 	
-			return analytic_fit.parameterFitness(x)
+			return analytic_fit.parameterFitness(x,Only_1S=first_order)
 
 		# Walker initialization
 		#--------------------------------------------
