@@ -84,7 +84,10 @@ def reshapeChain(walkerPosition):
 	massvals = walkerPosition[mass_indices,]
 	evals = walkerPosition[e_indices,].reshape(-1,2)
 	rMatrix = np.array([[0.,1.],[-1.,0]])
-	return np.append(massvals,np.dot(evals,rMatrix).reshape(-1)) 
+	if args.analytic:
+		return np.append(massvals,(evals).reshape(-1)) 
+	else:
+		return np.append(massvals,np.dot(evals,rMatrix).reshape(-1)) 
 
 def get_j_delta(p1,p2):
 	pratio = np.min((p2/p1,p1/p2))
@@ -94,7 +97,10 @@ def get_j_delta(p1,p2):
 
 def Zfn(evals,j):
 	"""Convert individual eccentricities to combined eccentricity entering into first-order MMR potential terms"""
-	ex,ey,ex1,ey1 = rot.dot(evals)
+	if args.analytic:
+		ex,ey,ex1,ey1 = evals
+	else:
+		ex,ey,ex1,ey1 = rot.dot(evals)
 	if j==2:
 		fCoeff = -1.19049
 		f1Coeff = 0.42839
@@ -113,9 +119,14 @@ def Zfn(evals,j):
 	Zx = fCoeff * ex + f1Coeff * ex1
 	Zy = fCoeff * ey + f1Coeff * ey1
 	return Zx,Zy, np.linalg.norm( np.array((Zx,Zy)) )
-
+true_fit=None
 if args.truths:
-	truths = reshapeChain(np.loadtxt(args.truths))
+	truths = np.loadtxt(args.truths)
+	if not args.analytic:
+		true_fit = fit.CoplanarParametersFitness(truths)
+		print true_fit
+	truths = reshapeChain(truths)
+		 
 else:
 	truths = None
 
@@ -159,16 +170,27 @@ else:
 			fi.write(  "\t".join(map(str,val)) )
 			fi.write("\n")
 if not args.noPlots:
+#-- Lnlike histogram --#
 	pl.hist(lnlike[lnlike>minlnlike],bins=100)
+	if args.analytic:
+		ntrTot=np.sum(np.array(map(len,fit.transitTimes)))
+	else:
+		ntrTot=np.sum(np.array(map(len,fit.transit_times)))
+	pl.title('N_transits/2 = %.2f'%(0.5 * ntrTot ))
+	if true_fit:
+		pl.axvline(true_fit)
+
 	if args.file:
 		pl.savefig("%s_chi2.png"%args.file)
 	
+#-- Pair-wise mass versus Z plots --#
 	for i in range(nplanets-1):
 		triangle.corner(np.hstack( ( chain[:,(3*i,3*(i+1))],Zdat[i] ) )[lnlike > minlnlike] , labels = ('m','m1','Zx','Zy','|Z|') )
 		if args.file:
 			pl.savefig("%s_mass-vs-Z_%d.png"%(args.file,i))
 	
 
+#-- Full mass versus ecc corner plot --#
 	lbls = [['m%d'%i] for i in range(nplanets)] + [('ex%d'%i,'ey%d'%i) for i in range(nplanets)] 
 	flatlabels =[]
 	for lbl in lbls:
@@ -182,13 +204,17 @@ if not args.noPlots:
 	if args.file:
 		pl.savefig("%s_mass-vs-ecc.png"%args.file)
 	
+#-- Best-fit TTV plot --#
 	if args.analytic:
+		pl.figure()
 		fit.parameterTTVPlot(best)
 	else:
 		fit.CoplanarParametersTTVPlot(best)
 	if args.file:
 		pl.savefig("%s_ttvs_best.png"%args.file)
+#-- Best-fit TTV resdiuals plot --#
 	if args.analytic:
+		pl.figure()
 		fit.parameterTTVResidualsPlot(best)
 	else:
 		fit.CoplanarParametersTTVResidPlot(best)
