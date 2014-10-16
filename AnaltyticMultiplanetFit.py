@@ -270,7 +270,7 @@ class MultiplanetAnalyticTTVSystem(object):
 			jRes = data['j']
 			ttv1FSdata = self.complexTTVAmplitudes1FS(parameters,periodRatio,data)
 			# Get 1S terms and add their TTV contributions
-			jvals,Vx,Vy,V1x,V1y = entry
+			jvals,Vx,Vy,V1x,V1y = ttv1FSdata.T
 			indx  = jvals.tolist().index(jRes)
 			Vx,Vy,V1x,V1y = map(lambda x: x[indx],(Vx,Vy,V1x,V1y))
 
