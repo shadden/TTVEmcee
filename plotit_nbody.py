@@ -19,6 +19,7 @@ parser.add_argument('--minlnlike','-L', metavar='F', type=float, default= -np.in
 parser.add_argument('--file','-f',metavar='PREFIX',default=None, help='Save the generated plots as PREFIX_[plot type].png')
 parser.add_argument('--noPlots',default=False, action='store_true' ,help='Don\'t make plots')
 parser.add_argument('--truths',metavar='FILE',default=None ,help='File containing the true masses and eccentricity components to show on triangle plot')
+parser.add_argument('--extents',metavar='FILE',default=None ,help='File containing parameter extents to show in triangle plot')
 parser.add_argument('--analytic',default=False, action='store_true' ,help='Show plots using analytic TTV approximation')
 
 args = parser.parse_args()
@@ -35,7 +36,7 @@ for file in infiles:
 	input_data.append( np.loadtxt(file) )
 nplanets = len(input_data)
 if args.analytic:
-	fit = ttv.MultiplanetSimpleAnalyticTTVSystem(input_data)
+	fit = ttv.MultiplanetAnalyticTTVSystem(input_data)
 else:
 	fit = ttv.TTVFitnessAdvanced(input_data)
 
@@ -142,6 +143,21 @@ with open("summary.txt",'w') as fi:
 		fi.write("\t95 pct. ey: %.3f, %.3f, %.3f\n"%dataMedianAndRange( evals[:,i+1], q = 95. ))
 np.savetxt("bestpars.txt",best)
 
+plotData = np.array([reshapeChain(x) for x in chain[lnlike>minlnlike]])
+minMass = np.min( plotData[:,:3].reshape(-1) )
+maxMass = np.max( plotData[:,:3].reshape(-1) )
+
+if args.extents:
+	with open(args.extents) as fi:
+		lines = [map(float,line.split()) for line in fi.readlines() ]
+	extnts = [x[0] if len(x)==1 else x for x in lines]
+else:
+	maxEcc = np.max( np.abs(plotData[:,3:].reshape(-1) ))
+	extnts = [ ( np.min(plotData[:,i]), np.max(plotData[:,i]) ) for i in range(nplanets) ] + [ (-maxEcc,maxEcc) for i in range(2*nplanets)]
+	with open("plot_ranges.txt","w") as fi:
+		for val in extnts:
+			fi.write(  "\t".join(map(str,val)) )
+			fi.write("\n")
 if not args.noPlots:
 	pl.hist(lnlike[lnlike>minlnlike],bins=100)
 	if args.file:
@@ -160,11 +176,7 @@ if not args.noPlots:
 			flatlabels.append(y)
 
 	lbls = tuple(flatlabels)
-	plotData = np.array([reshapeChain(x) for x in chain[lnlike>minlnlike]])
-	minMass = np.min( plotData[:,:3].reshape(-1) )
-	maxMass = np.max( plotData[:,:3].reshape(-1) )
-	maxEcc = np.max( np.abs(plotData[:,3:].reshape(-1) ))
-	extnts = [ 1.0 for i in range(nplanets) ] + [ (-maxEcc,maxEcc) for i in range(2*nplanets)]
+
 	triangle.corner(plotData , labels = lbls ,truths=truths,extents=extnts)
 
 	if args.file:
