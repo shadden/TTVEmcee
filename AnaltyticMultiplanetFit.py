@@ -57,10 +57,16 @@ class MultiplanetAnalyticTTVSystem(object):
 					#- 0:-1 terms -#
 			f0 = -0.5 * alpha * LC.b(alpha,0.5,0,1)
 			f10 = 1.5 / alpha**2 - 0.5 * LC.b(alpha,0.5,1,0) + 0.5 * alpha * LC.b(alpha,0.5,1,1)
+			df0 = 0.0
+			df10 = 0.0
 			#
 			laplaceCoeffF1ext = np.append( np.array((f10)) , LC.get_f1Ext_array(pRatio) )
 			laplaceCoeffF1int = np.append( np.array((f10)) , LC.get_f1Int_array(pRatio) )
 			laplaceCoeffF     = np.append( np.array((f0 )) , LC.get_f_array(pRatio)     )
+			#
+			laplaceCoeffdF1ext = np.append( np.array((df10)) , LC.get_df1Ext_array(pRatio) )
+			laplaceCoeffdF1int = np.append( np.array((df10)) , LC.get_df1Int_array(pRatio) )
+			laplaceCoeffdF =  np.append( np.array((df0 )) , LC.get_df_array(pRatio)     )
 				# -- 0F --#
 			laplaceCoeffK = LC.get_k_array(pRatio)
 			laplaceCoeffK1 = LC.get_k1_array(pRatio)
@@ -76,6 +82,7 @@ class MultiplanetAnalyticTTVSystem(object):
 			
 			resDataDict = {'j':j,'Delta':pairDelta,\
 				'f':laplaceCoeffF,'f1e':laplaceCoeffF1ext,'f1i':laplaceCoeffF1int,\
+				'df':laplaceCoeffdF,'df1e':laplaceCoeffdF1ext,'df1i':laplaceCoeffF1int,\
 				'k':laplaceCoeffK,'k1':laplaceCoeffK1,'dk':laplaceCoeffdK,'dk1':laplaceCoeffdK1,\
 				'g':laplaceCoeffG,'g1':laplaceCoeffG1,'h':laplaceCoeffH}
 			
@@ -92,22 +99,36 @@ class MultiplanetAnalyticTTVSystem(object):
 		
 		# Input resonace information for pair
 		j = np.arange(1,6)
-		f,f1e,f1i = map(lambda x: resData[x],('f','f1e','f1i'))
-		f0,f10 = f[0],f1e[0]
-		f,f1e,f1i = f[1:],f1e[1:],f1i[1:]
 		delta = (j-1.)*periodRatio /j -1.
 		alpha = np.power( periodRatio, -2./3.)
-
+		f,f1e,f1i,df,df1e,df1i = map(lambda x: resData[x],('f','f1e','f1i','df','df1e','df1i'))
+		# Set up Laplace coefficients to correspond to to the array j=[1,2,3,4,5]
+		f0,f10,df0,df10 = f[0],f1e[0],df[0],df1e[0]
+		f,f1e,f1i,df,df1e,df1i = f[1:],f1e[1:],f1i[1:],df[1:],df1e[1:],df1i[1:]
+		
+		# Add indirect term to the 1:0 Laplace coefficient for external perturber
+		fe,dfe = f.copy(),df.copy()
+		#fe[0] += 1.5*alpha
+		#dfe[0] += 1.5
+		
 		# Complex eccentricities
-		Zxe,Zxi = f * ex + f1e * ex1, f * ex + f1i * ex1
-		Zye,Zyi = f * ey + f1e * ey1, f * ey + f1i * ey1
+		Zxe,Zxi = fe * ex + f1e * ex1, f * ex + f1i * ex1
+		Zye,Zyi = fe * ey + f1e * ey1,  f * ey + f1i * ey1
 
-		Vx= mu1/np.sqrt(alpha) * (-f/(j * delta) -(j-1.)/j * 1.5/(j*alpha**1.5 * delta**2 ) * Zxe)
+		Vx= mu1/np.sqrt(alpha) * (-fe/(j * delta) -(j-1.)/j * 1.5/(j*alpha**1.5 * delta**2 ) * Zxe)
 		Vy= mu1/np.sqrt(alpha) *  ( -(j-1.)/j * 1.5/(j*alpha**1.5 * delta**2 )) * -Zye
+		#-- extra lambda terms --#
+		Vx+= -mu1*sqrt(alpha)/(j*delta) *  ((dfe - 0.25*f/sqrt(alpha)) * ex + df1e * ex1 )
+		Vy+= -mu1*sqrt(alpha)/(j*delta) *  ((dfe - 0.25*f/sqrt(alpha)) * -ey + df1e * -ey1 )
+		
 		
 		V1x = mu*(-f1i/(j*delta) + 1.5* Zxi/(j*delta**2) )
 		V1y = mu*(1.5 * -Zyi/(j*delta**2) )
+		#-- extra lambda terms --#
+		V1x+= mu/(j*delta) *  ((f+alpha*df) * ex + (f1i+alpha*df1i - 0.25*f1i) * ex1 )
+		V1y+= mu/(j*delta) *  ((f+alpha*df) * -ey + (f1i+alpha*df1i - 0.25*f1i) * -ey1 )
 		
+		#---------------------------------------------------#
 		# prepend 0:-1 values 
 		j = np.append( 0 , j)
 		Vx0 = mu1 * f0 / ( np.sqrt(alpha) *periodRatio )
@@ -405,12 +426,12 @@ class MultiplanetAnalyticTTVSystem(object):
 
 # ---------------------------	#	#	#	#	#	--------------------------- #
 
+# if __name__=="__main__":
+# 	with open('planets.txt') as fi:
+# 		pNames = [line.strip() for line in fi.readlines()]
+# 	analyticFit = MultiplanetAnalyticTTVSystem([np.loadtxt(pname) for pname in pNames])
+# 	analyticFit.parameterTTV1SResidualsPlot(bestparams,fmt='k-')
 if __name__=="__main__":
-	with open('planets.txt') as fi:
-		pNames = [line.strip() for line in fi.readlines()]
-	analyticFit = MultiplanetAnalyticTTVSystem([np.loadtxt(pname) for pname in pNames])
-	analyticFit.parameterTTV1SResidualsPlot(bestparams,fmt='k-')
-if False:
 	import glob
 	sys.path.append("/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface")
 	import PyTTVFast as ttv
@@ -458,12 +479,12 @@ if False:
 	for i,timedata in enumerate(zip(transits,inptData)):
 		times,obstimes = timedata
 		pl.figure(2)
-		pl.subplot(310 + i + 1)
+		pl.subplot(analyticFit.nPlanets*100+10 + i + 1)
 		pl.plot(times[:,1])
 		pl.plot(obstimes[:,1])
 	
 		pl.figure(3)	
-		pl.subplot(310 + i + 1)
+		pl.subplot(analyticFit.nPlanets*100+10 + i + 1)
 		ttvs = linefit_resids(times[:,0],times[:,1])
 		pl.plot(times[:,1],ttvs,'k.')		
 		obs_ttvs = linefit_resids(obstimes[:,0],obstimes[:,1])
