@@ -323,6 +323,7 @@ class MultiplanetAnalyticTTVSystem(object):
 			
 			ttv1FSdata = self.complexTTVAmplitudes1FS(parameters,periodRatio,data)
 			ttv0Fdata = self.complexTTVAmplitudes0F(parameters,periodRatio,data)
+			ttv2Sdata = self.complexTTVAmplitudes0F(parameters,periodRatio,data)
 			
 			# Sum TTV contributions of 1F/1S terms
 			print "(1 F/S): j\t Vx \t Vy \t V1x \t V1y"
@@ -334,7 +335,10 @@ class MultiplanetAnalyticTTVSystem(object):
 			for entry in ttv0Fdata:
 				jRes,Vx,V1x = entry
 				print "(0 F): %d\t %.3g \t %.3g"%(jRes,Vx,V1x)
-			
+			# Sum TTV contributions of 2S term
+			print "(2S): j\t Vx \t Vy \t V1x \t V1y"
+			jRes,Vx,Vy,V1x,V1y = ttv2Sdata
+			print "(1 F/S): %d\t %.3g \t %.3g \t %.3g \t %.3g"%(jRes,Vx,Vy,V1x,V1y)
 			
 
 
