@@ -354,9 +354,28 @@ class MultiplanetAnalyticTTVSystem(object):
 			resids = (self.transitTimes[i] - numAndTime[:,1])
 			if normalized:
 				resids /= self.transitUncertainties[i]
-
-			pl.plot(numAndTime[:,1],resids,fmt)
+			ebs = self.transitUncertainties[i] 
+			pl.errorbar(numAndTime[:,1],resids,yerr=ebs,fmt=fmt)
 		
+	def parameterTTV1SResidualsPlot(self,paramsList,**kwargs):
+		fmt = kwargs.get('fmt','k.')
+		for params in paramsList:
+			transitNumberAndTime = self.parameterTransitTimes(params)
+			transit1Sonly = self.parameterTransitTimes(params,Only_1S=True)
+			for i,numAndTime in enumerate(transitNumberAndTime):
+				pl.subplot(self.nPlanets*100 + 10 + i +1)
+				resids = (numAndTime[:,1]-transit1Sonly[i][:,1])
+				pl.plot(numAndTime[:,1],resids,fmt)
+
+		for i in range(self.nPlanets):
+			pl.subplot(self.nPlanets*100 + 10 + i +1)
+			obstrNums = self.transitNumbers[i]
+			obs_resids = self.transitTimes[i] - transit1Sonly[i][obstrNums,1]
+			ebs = self.transitUncertainties[i]
+			#print  self.transitTimes[i] - transit1Sonly[i][obstrNums,1]
+			#print map(len,(obs_resids,ebs,transit1Sonly[i][:,1]))
+			pl.errorbar(self.transitTimes[i],obs_resids,yerr=ebs,fmt='rs')
+
 	def parameterFitness(self,params,Only_1S=False):
 
 		transitNumberAndTime = self.parameterTransitTimes(params,Only_1S)
@@ -385,7 +404,13 @@ class MultiplanetAnalyticTTVSystem(object):
 		return leastsq(objectivefn, params0,full_output=1)
 
 # ---------------------------	#	#	#	#	#	--------------------------- #
+
 if __name__=="__main__":
+	with open('planets.txt') as fi:
+		pNames = [line.strip() for line in fi.readlines()]
+	analyticFit = MultiplanetAnalyticTTVSystem([np.loadtxt(pname) for pname in pNames])
+	analyticFit.parameterTTV1SResidualsPlot(bestparams,fmt='k-')
+if False:
 	import glob
 	sys.path.append("/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface")
 	import PyTTVFast as ttv
