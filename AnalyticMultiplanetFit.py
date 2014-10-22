@@ -510,17 +510,14 @@ class MultiplanetAnalyticTTVSystem(object):
 	
 		def objectivefn(x):
 			fullParameters = np.hstack((massAndEcc.reshape(-1) , x))
-		
 			transitNumberAndTime =  self.parameterTransitTimes(fullParameters)
-		
 			answer = np.array([],dtype=float)
-		
 			for t in transitNumberAndTime:
 				answer = np.append( answer,np.array(t[:,1]) )
 		
 			return (answer - target_data)/errors
 		
-		guess = np.vstack(( self.periodEstimates[1:] / self.periodEstimates[0] , np.zeros(self.nPlanets - 1) )).T.reshape(-1)
+		guess = np.vstack(( self.periodEstimates[1:]/self.periodEstimates[0] , np.zeros(self.nPlanets - 1) )).T.reshape(-1)
 		
 		pAndLbest =  leastsq(objectivefn, guess ,full_output=1)[0]
 		
