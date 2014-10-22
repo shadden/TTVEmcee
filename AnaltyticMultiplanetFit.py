@@ -82,7 +82,7 @@ class MultiplanetAnalyticTTVSystem(object):
 			
 			resDataDict = {'j':j,'Delta':pairDelta,\
 				'f':laplaceCoeffF,'f1e':laplaceCoeffF1ext,'f1i':laplaceCoeffF1int,\
-				'df':laplaceCoeffdF,'df1e':laplaceCoeffdF1ext,'df1i':laplaceCoeffF1int,\
+				'df':laplaceCoeffdF,'df1e':laplaceCoeffdF1ext,'df1i':laplaceCoeffdF1int,\
 				'k':laplaceCoeffK,'k1':laplaceCoeffK1,'dk':laplaceCoeffdK,'dk1':laplaceCoeffdK1,\
 				'g':laplaceCoeffG,'g1':laplaceCoeffG1,'h':laplaceCoeffH}
 			
@@ -110,20 +110,22 @@ class MultiplanetAnalyticTTVSystem(object):
 		fe,dfe = f.copy(),df.copy()
 		#fe[0] += 1.5*alpha
 		#dfe[0] += 1.5
-		
 		# Complex eccentricities
 		Zxe,Zxi = fe * ex + f1e * ex1, f * ex + f1i * ex1
 		Zye,Zyi = fe * ey + f1e * ey1,  f * ey + f1i * ey1
-
+		
+		#print fe[1],f1e[1],ey,ey1,Zye[1]
+		 
 		Vx= mu1/np.sqrt(alpha) * (-fe/(j * delta) -(j-1.)/j * 1.5/(j*alpha**1.5 * delta**2 ) * Zxe)
-		Vy= mu1/np.sqrt(alpha) *  ( -(j-1.)/j * 1.5/(j*alpha**1.5 * delta**2 )) * -Zye
+		Vy= mu1/np.sqrt(alpha) *  ( -(j-1.)/j * 1.5/(j * alpha**1.5 * delta**2 )) * -Zye
 		#-- extra lambda terms --#
-		Vx+= -mu1*sqrt(alpha)/(j*delta) *  ((dfe - 0.25*f/sqrt(alpha)) * ex + df1e * ex1 )
+		Vx+= -mu1*sqrt(alpha)/(j*delta) *  ((dfe - 0.25*f/sqrt(alpha)) *  ex + df1e *  ex1 )
 		Vy+= -mu1*sqrt(alpha)/(j*delta) *  ((dfe - 0.25*f/sqrt(alpha)) * -ey + df1e * -ey1 )
 		
 		
 		V1x = mu*(-f1i/(j*delta) + 1.5* Zxi/(j*delta**2) )
 		V1y = mu*(1.5 * -Zyi/(j*delta**2) )
+		
 		#-- extra lambda terms --#
 		V1x+= mu/(j*delta) *  ((f+alpha*df) * ex + (f1i+alpha*df1i - 0.25*f1i) * ex1 )
 		V1y+= mu/(j*delta) *  ((f+alpha*df) * -ey + (f1i+alpha*df1i - 0.25*f1i) * -ey1 )
@@ -171,6 +173,7 @@ class MultiplanetAnalyticTTVSystem(object):
 		j = 2 * resData['j']
 		g,g1,h = map(lambda x: resData[x][j-3],('g','g1','h'))
 		delta = (j-2) * pRatio/j - 1.
+
 		#--------------------------------------------
 		# -- dz terms -- #
 		dzx = -mu1/(j * np.sqrt(alpha)* delta) * (2*g*ex + h * ex1)
@@ -182,7 +185,7 @@ class MultiplanetAnalyticTTVSystem(object):
 		bigZ2x = g * (ex*ex -ey*ey) + g1 * (ex1*ex1 - ey1*ey1) + h * (ex*ex1 - ey*ey1)
 		bigZ2y = g * (2*ex*ey) + g1 * (2*ex1*ey1) + h * (ex*ey1 + ey*ex1)
 		#
-		dlx = -mu1 * 1.5/(j*delta**2) *(j-2.)/(j*alpha**2) * bigZ2x
+		dlx = -mu1 * 1.5/(j*delta**2) * (j-2.)/(j*alpha**2) * bigZ2x #
 		dly = -mu1 * 1.5/(j*delta**2) *(j-2.)/(j*alpha**2) * -bigZ2y
 		dl1x = mu * 1.5/(j*delta**2) * bigZ2x
 		dl1y = mu * 1.5/(j*delta**2) * -bigZ2y
@@ -323,7 +326,7 @@ class MultiplanetAnalyticTTVSystem(object):
 			
 			ttv1FSdata = self.complexTTVAmplitudes1FS(parameters,periodRatio,data)
 			ttv0Fdata = self.complexTTVAmplitudes0F(parameters,periodRatio,data)
-			ttv2Sdata = self.complexTTVAmplitudes0F(parameters,periodRatio,data)
+			ttv2Sdata = self.complexTTVAmplitudes2S(parameters,periodRatio,data)
 			
 			# Sum TTV contributions of 1F/1S terms
 			print "(1 F/S): j\t Vx \t Vy \t V1x \t V1y"
@@ -335,10 +338,12 @@ class MultiplanetAnalyticTTVSystem(object):
 			for entry in ttv0Fdata:
 				jRes,Vx,V1x = entry
 				print "(0 F): %d\t %.3g \t %.3g"%(jRes,Vx,V1x)
+			
 			# Sum TTV contributions of 2S term
+			print "---------------------------------------------------"
 			print "(2S): j\t Vx \t Vy \t V1x \t V1y"
 			jRes,Vx,Vy,V1x,V1y = ttv2Sdata
-			print "(1 F/S): %d\t %.3g \t %.3g \t %.3g \t %.3g"%(jRes,Vx,Vy,V1x,V1y)
+			print "(2S): %d\t %.3g \t %.3g \t %.3g \t %.3g"%(jRes,Vx,Vy,V1x,V1y)
 			
 
 
