@@ -102,10 +102,10 @@ if __name__=="__main__":
 	import PyTTVFast as ttv
 	ndim = 5*nplanets-2
 
-	if nbody:
 	#----------------------------------------------------------------------		
 	#	Compute log-likelihoods from N-body integration
 	#----------------------------------------------------------------------
+	if nbody:
 		sys.path.insert(0,TTVFAST_PATH)
 		import PyTTVFast as ttv
 		nbody_fit = ttv.TTVFitnessAdvanced(input_data)
@@ -136,17 +136,17 @@ if __name__=="__main__":
 		# Walker initialization
 		#--------------------------------------------
 		def initialize_walkers(nwalk,p0):
-			"""Initialize walkers around point p0 = [ mass1,mass2,...,ex1,ey1,ex2,ey2,...,P2_obs/P1_obs,..., dL2_obs,...]"""
+			"""Initialize walkers around point p0 = [ mass1,mass2,...,ex1,ey1,ex2,ey2,...]""" #...,P2_obs/P1_obs,..., dL2_obs,...]"""
 			masses = p0[:nplanets]
 			evecs = p0[nplanets:].reshape(-1,2)
 			ics = nbody_fit.GenerateRandomInitialConditions(masses,0.1,evecs,0.002,nwalk)
 			return array([ nbody_fit.convert_params(ic) for ic in ics])
-	#----------------------------------------------------------------------
+				
 
-	else:
 	#----------------------------------------------------------------------		
-	#	Compute log-likelihoods from analytic first-order formula
+	#	Compute log-likelihoods from analytic formula
 	#----------------------------------------------------------------------
+	else:
 		sys.path.insert(0,ANALYTIC_TTV_PATH)
 		import AnaltyticMultiplanetFit as ttv
 		analytic_fit = ttv.MultiplanetAnalyticTTVSystem(input_data)
