@@ -9,17 +9,74 @@ from scipy.optimize import curve_fit,leastsq
 
 
 def linefit(x,y,sigma=None):
+	""" 
+	Fit a line of the form y = a * x + b.   Uncertainties in y can be specifies as 'sigma'.
+	Returns the results of 'curve_fit'.  The first return value is the tuplet (a,b).
+	"""
 	assert len(x) == len(y), "Cannot fit line with different length dependent and independent variable data!"
 	linefn = lambda x,slope,intercept: x*slope + intercept
 	return curve_fit(linefn,x,y,sigma=sigma)
+
 def linefit_resids(x,y,sigma=None):
+	"""
+	Fit a line of the form y = a * x + b and return the residuals y- a * x - b.
+	"""
 	s,m = linefit(x,y,sigma)[0]
 	return y - s*x -m
+
 def delta(pratio,j,k):
 	return pratio * k/j - 1.
+
 def get_res(pratio):
 	return np.argmin([np.abs(delta(pratio,j,j-1)) for j in range(2,6)]) + 2
+
+def deg2rad(x):
+	return np.mod( x * np.pi / 180. ,  2*np.pi)
+
+def ttvfast2mycoords(coords):
+	""" 
+	Convert from ttvfast coordinates (positive z-axis pointed towards observer) to
+	coordiantes where the observer is located along the positive x-axis
 	
+	Parameters
+	----------
+	coords : 2-dimensional array
+		A list of mass and orbital data for each planet.  A single planet's entry is in 
+		the form:
+				[ Mass, Per, Ecc, Inc, Node, ArgPeri, M ]
+				
+	Returns
+	-------
+	new_coords: 2-dimensional array
+		Similar to coords but transformed to the new coordinate system and each planet 
+		entry is in the form:
+			[ Mass,Per, Ecc, Inc, LongPeri, Node, MeanLong ]
+	"""
+	
+	newCoords = np.zeros(coords.shape)
+	
+	for i,coord in enumerate(coords):
+		Mass,Per,Ecc,Inc,Node,ArgPeri,M = coord
+		Inc = deg2rad(Inc-90.) 
+		LongPeri = deg2rad(ArgPeri + Node - 90.)
+		MeanLong = np.mod( deg2rad(M) + LongPeri, 2.*np.pi)
+		Node = deg2rad(Node)
+		newCoords[i] = np.array( (Mass,Per, Ecc, Inc, LongPeri, Node, MeanLong) )
+
+	return newCoords
+
+def orbels2parameters(coords):
+	massAndEcc = np.zeros( (coords.shape[0], 3))
+	perAndL = np.zeros( (coords.shape[0], 2))
+	for i,coord in enumerate(coords):
+		Mass,Per, Ecc, Inc, LongPeri, Node, MeanLong = coord
+		ex = Ecc * np.cos(LongPeri)
+		ey = Ecc * np.sin(LongPeri)
+		massAndEcc[i]=np.array((Mass,ex,ey))
+		perAndL[i] = np.array((Per,MeanLong))
+
+	return massAndEcc,perAndL 
+
 class MultiplanetAnalyticTTVSystem(object):
 	def __init__(self,inputData,deltaLimit=0.06):
 		""" :deltaLimit float: limiting absolute value of delta for which to include 2S TTV component"""
@@ -119,8 +176,8 @@ class MultiplanetAnalyticTTVSystem(object):
 		Vx= mu1/np.sqrt(alpha) * (-fe/(j * delta) -(j-1.)/j * 1.5/(j*alpha**1.5 * delta**2 ) * Zxe)
 		Vy= mu1/np.sqrt(alpha) *  ( -(j-1.)/j * 1.5/(j * alpha**1.5 * delta**2 )) * -Zye
 		#-- extra lambda terms --#
-		Vx+= -mu1*sqrt(alpha)/(j*delta) *  ((dfe - 0.25*f/sqrt(alpha)) *  ex + df1e *  ex1 )
-		Vy+= -mu1*sqrt(alpha)/(j*delta) *  ((dfe - 0.25*f/sqrt(alpha)) * -ey + df1e * -ey1 )
+		Vx+= -mu1*np.sqrt(alpha)/(j*delta) *  ((dfe - 0.25*f/np.sqrt(alpha)) *  ex + df1e *  ex1 )
+		Vy+= -mu1*np.sqrt(alpha)/(j*delta) *  ((dfe - 0.25*f/np.sqrt(alpha)) * -ey + df1e * -ey1 )
 		
 		
 		V1x = mu*(-f1i/(j*delta) + 1.5* Zxi/(j*delta**2) )
@@ -433,6 +490,88 @@ class MultiplanetAnalyticTTVSystem(object):
 		
 		return leastsq(objectivefn, params0,full_output=1)
 
+	def bestFitPeriodAndLongitude(self,massAndEcc):
+		""" 
+		Find the best set of average periods and initial mean longitudes for a fixed set of 
+		planet masses and eccentricities.
+	
+		Parameters
+		----------
+		massAndEcc : nPlanets x 3 array
+			The mass and free eccentricity vectors of each planet under consideration
+		"""
+	
+		target_data = np.array([])
+		errors = np.array([])
+		
+		for i in range(self.nPlanets):
+			target_data = np.append(target_data,self.transitTimes[i])
+			errors = np.append(errors,self.transitUncertainties[i])
+	
+		def objectivefn(x):
+			fullParameters = np.hstack((massAndEcc.reshape(-1) , x))
+		
+			transitNumberAndTime =  self.parameterTransitTimes(fullParameters)
+		
+			answer = np.array([],dtype=float)
+		
+			for t in transitNumberAndTime:
+				answer = np.append( answer,np.array(t[:,1]) )
+		
+			return (answer - target_data)/errors
+		
+		guess = np.vstack(( self.periodEstimates[1:] / self.periodEstimates[0] , np.zeros(self.nPlanets - 1) )).T.reshape(-1)
+		
+		pAndLbest =  leastsq(objectivefn, guess ,full_output=1)[0]
+		
+		return np.hstack((massAndEcc.reshape(-1),pAndLbest))
+
+##############################################################################################################################################################################
+	
+	def forcedEccs(self,massesAndEccs,periodsAndMeanLongs):
+		
+		mass,ex,ey = np.transpose(massesAndEccs.reshape(-1,3))
+		period,meanLong = np.transpose(periodsAndMeanLongs.reshape(-1,2))
+		
+		exF,eyF = np.zeros((2,self.nPlanets))
+		for pair,data in self.resonanceData.iteritems():
+			i,j = pair
+			periodRatio = period[j] / period[i]
+			alpha = np.power(periodRatio , -2./3.)
+			jRes = data['j']
+			
+			fCoeff,f1Coeff,delta = data['f'][jRes],data['f1i'][jRes],data['Delta']
+			
+			resAngle = jRes * meanLong[j] - (jRes - 1.) * meanLong[i]
+			eFin  = -mass[j] / np.sqrt(alpha) * 1./(jRes * delta) * fCoeff
+			eFout = -mass[i] * 1. / (jRes * delta) * f1Coeff
+
+			exF[i] += eFin  * np.cos(resAngle)
+			eyF[i] += eFin  * np.sin(resAngle) 
+			exF[j] += eFout * np.cos(resAngle)
+			eyF[j] += eFout * np.sin(resAngle) 
+			
+		return np.vstack((exF,eyF)).T,np.vstack((ex-exF,ey-eyF)).T
+			
+	def TTVFastCoordTransform(self,ttvFastCoords):
+		# Transform to observer along x-axis:
+		tCoords = ttvfast2mycoords(ttvFastCoords)
+		
+		# Get parameters in eccentricity component form:
+		massAndEccentricities,periodsAndLongitudes = orbels2parameters(tCoords)
+
+		# convert total eccentricities to free eccentricities:
+		eForced,eFree = self.forcedEccs(massAndEccentricities,periodsAndLongitudes)
+		
+		
+		mass = massAndEccentricities[:,0].reshape(-1,1)
+		# Replace instantaneous periods with approximate average period
+		periodsAndLongitudes[:,0] = self.periodEstimates
+		
+		return np.hstack((mass, eFree)), periodsAndLongitudes
+		
+##############################################################################################################################################################################
+	
 # ---------------------------	#	#	#	#	#	--------------------------- #
 
 # if __name__=="__main__":
@@ -440,77 +579,31 @@ class MultiplanetAnalyticTTVSystem(object):
 # 		pNames = [line.strip() for line in fi.readlines()]
 # 	analyticFit = MultiplanetAnalyticTTVSystem([np.loadtxt(pname) for pname in pNames])
 # 	analyticFit.parameterTTV1SResidualsPlot(bestparams,fmt='k-')
-if __name__=="__main__":
-	import glob
-	sys.path.append("/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface")
-	import PyTTVFast as ttv
 
-	# Read in parameters from 'inpars.txt' to generate transit times via n-body
-	pars = np.loadtxt('inpars.txt')
-	nbody_compute = ttv.TTVCompute()
-	trTimes,success = nbody_compute.TransitTimes(200.,pars)
+
+#------------------------------# Garbage Code! #------------------------------#
+
+# 	mass = pars[:,0]
+# 	ex  = pars[:,2] * np.cos(pars[:,5]*np.pi/180.)
+# 	ey  = pars[:,2] * np.sin(pars[:,5]*np.pi/180.)	
+# 	ex,ey = ey,-ex
+# 
+# 	pers = pars[:,1]
+# 	meanAnom = pars[:,-1]
+# 	meanLong = np.pi*(meanAnom)/ 180. + np.arctan2(ey,ex) 
+# 	massAndEccs = np.vstack((mass,ex,ey)).T
+# 	persAndLs = np.vstack((  pers, np.mod(meanLong,2.*np.pi)   )).T
+
+	# Compute and plot analytic transit times from abridged parameters ( i.e., use time-rescaling method )
+# 	t0s = [x[0] for x in trTimes]
+# 	Lvals =  -2 * np.pi/pers * ( t0s - t0s[0])
+# 	transformedPersAndLs = np.vstack(( pers/pers[0], Lvals  )).T
+# 	new_params=np.hstack((massAndEccs.reshape(-1),transformedPersAndLs.reshape(-1)[2:]))
+# 	#
+# 	new_transits = 	analyticFit.parameterTransitTimes(new_params)
+# # 	analyticFit.parameterTTVPlot(new_params,fmt='kx')
 	
-	inptData = []
-	for times in trTimes:
-		NandT=np.vstack(( np.arange(len(times)) , times , 1.e-5*np.ones(len(times)) )).T
-		inptData.append(NandT)
-	
-	noiseLvl = 2.e-4
-	pl.figure(1)
-	for i,times in enumerate(trTimes):
-		nTransits = len(times)
-		noise = np.random.normal(0.,noiseLvl,nTransits)
-		noisyData=np.vstack(( np.arange(nTransits) , times + noise , noiseLvl*np.ones(len(times)) )).T
-		np.savetxt("planet%d.txt"%i,noisyData)
-		pl.errorbar(noisyData[:,1],linefit_resids(noisyData[:,0],noisyData[:,1],noisyData[:,2]),yerr=noisyData[:,2],fmt='s')
-		
-	# Create an analytic fit object based on the N-body transit times
-	analyticFit = MultiplanetAnalyticTTVSystem(inptData)
 
-	# Convert parameters to form used by analytic fit
-	mass = pars[:,0]
-	ex  = pars[:,2] * np.cos(pars[:,5]*np.pi/180.)
-	ey  = pars[:,2] * np.sin(pars[:,5]*np.pi/180.)	
-	ex,ey = ey,-ex
+#------------------------------# Garbage Code! #------------------------------#
 
-	pers = pars[:,1]
-	meanAnom = pars[:,-1]
-	meanLong = np.pi*(meanAnom)/ 180. + np.arctan2(ey,ex) 
-	massAndEccs = np.vstack((mass,ex,ey)).T
-	persAndLs = np.vstack((  pers, np.mod(meanLong,2.*np.pi)   )).T
-
-	# Generate analytic transit times from full parameter list
-
-	transits = analyticFit.TransitTimes(massAndEccs,persAndLs)
 			
-	# Plot N-body and analytic transit times
-	
-	for i,timedata in enumerate(zip(transits,inptData)):
-		times,obstimes = timedata
-		pl.figure(2)
-		pl.subplot(analyticFit.nPlanets*100+10 + i + 1)
-		pl.plot(times[:,1])
-		pl.plot(obstimes[:,1])
-	
-		pl.figure(3)	
-		pl.subplot(analyticFit.nPlanets*100+10 + i + 1)
-		ttvs = linefit_resids(times[:,0],times[:,1])
-		pl.plot(times[:,1],ttvs,'k.')		
-		obs_ttvs = linefit_resids(obstimes[:,0],obstimes[:,1])
-		pl.errorbar(obstimes[:,1],obs_ttvs,yerr=obstimes[:,2],fmt='rs')
-
-	# Compute and plot analytic transit times from abridged parameters (i.e., use time-rescaling method
-	t0s = [x[0] for x in trTimes]
-	Lvals =  -2 * np.pi/pers * ( t0s - t0s[0])
-	transformedPersAndLs = np.vstack(( pers/pers[0], Lvals  )).T
-	new_params=np.hstack((massAndEccs.reshape(-1),transformedPersAndLs.reshape(-1)[2:]))
-	#
-	new_transits = 	analyticFit.parameterTransitTimes(new_params)
-	analyticFit.parameterTTVPlot(new_params,fmt='kx')
-	
-	pl.show()
-	
-
-	analyticFit.parameterAmplitudeTables(new_params)
-	np.savetxt("starting_paramters.txt",new_params)
-
