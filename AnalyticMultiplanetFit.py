@@ -249,7 +249,7 @@ class MultiplanetAnalyticTTVSystem(object):
 		#--------------------------------------------		
 		return np.array((j,dzx + dlx, dzy + dly, dz1x + dl1x, dz1y + dl1y))
 
-	def TransitTimes(self,massesAndEccs,periodsAndMeanLongs):
+	def TransitTimes(self,massesAndEccs,periodsAndMeanLongs,exclude=[]):
 		"""
 		Compute transit times for each planet in the multi-planet system as the sum of a linear
 		trend plus the TTVs induced by each partner.
@@ -263,7 +263,13 @@ class MultiplanetAnalyticTTVSystem(object):
 			The average periods and initial mean longitudes of consecutive planets.  Mean longitudes
 			should be given in RADIANS and are measured relative to the line of sight to the observer.
 			This can be a flat array or an array of pairs.
+		exclude : list
+			List of terms to exclude from TTV calculation.  Options and 'F' for fast terms and'2S' for
+			the second-harmonic slow term.
 		"""
+		excludeF =  ( 'F' in exclude )
+		exclude2S =  ( '2S' in exclude )
+			
 		mass,ex,ey = np.transpose(massesAndEccs.reshape(-1,3))
 		period,meanLong = np.transpose(periodsAndMeanLongs.reshape(-1,2))
 
@@ -283,7 +289,11 @@ class MultiplanetAnalyticTTVSystem(object):
 			
 			# Sum TTV contributions of 1F/1S terms
 			for entry in ttv1FSdata:
+				
 				jRes,Vx,Vy,V1x,V1y = entry
+
+				if excludeF and jRes != data['j']:
+					continue
 
 				omegaRes = 2.0 * np.pi * ( jRes/period[j] - (jRes-1)/period[i] )
 				angleResInner = omegaRes * transitTimes[i] + jRes * meanLong[j] - (jRes - 1) * meanLong[i]
@@ -294,6 +304,10 @@ class MultiplanetAnalyticTTVSystem(object):
 			
 			# Sum TTV contributions of 0F terms
 			for entry in ttv0Fdata:
+				
+				if excludeF:
+					continue
+				
 				jRes,Vx,V1x = entry
 
 				omegaRes = 2.0 * np.pi * ( jRes/period[j] - (jRes)/period[i] )
@@ -304,7 +318,7 @@ class MultiplanetAnalyticTTVSystem(object):
 				TTVs[j] += period[j] / np.pi * ( V1x * np.sin(angleResOuter))
 
 			# Add contribution of 2S term if delta is small
-			if np.abs(data['Delta']) < self.deltaLimit:
+			if np.abs(data['Delta']) < self.deltaLimit and not exclude2S:
 				jRes,Vx,Vy,V1x,V1y = self.complexTTVAmplitudes2S(parameters,periodRatio,data)
 				omegaRes = 2.0 * np.pi * ( jRes/period[j] - (jRes-2)/period[i] )
 				angleResInner = omegaRes * transitTimes[i] + jRes * meanLong[j] - (jRes - 2) * meanLong[i]
@@ -404,7 +418,7 @@ class MultiplanetAnalyticTTVSystem(object):
 			
 
 
-	def parameterTransitTimes(self,params,Only_1S=False):
+	def parameterTransitTimes(self,params,Only_1S=False,exclude=[]):
 		massesAndEccs = params[:3*self.nPlanets]
 		ey0 = massesAndEccs[2]
 		periodsAndMeanLongs = np.hstack(( np.array( (1.0, 0.0) ),params[3*self.nPlanets:]))
@@ -413,7 +427,7 @@ class MultiplanetAnalyticTTVSystem(object):
 		if Only_1S:
 			unscaledTimes = [x[:,1] for x in self.TransitTimes_1SOnly(massesAndEccs,periodsAndMeanLongs)]
 		else:
-			unscaledTimes = [x[:,1] for x in self.TransitTimes(massesAndEccs,periodsAndMeanLongs)]
+			unscaledTimes = [x[:,1] for x in self.TransitTimes(massesAndEccs,periodsAndMeanLongs,exclude)]
 		
 		#
 		# time rescaling function
@@ -463,9 +477,9 @@ class MultiplanetAnalyticTTVSystem(object):
 			#print map(len,(obs_resids,ebs,transit1Sonly[i][:,1]))
 			pl.errorbar(self.transitTimes[i],obs_resids,yerr=ebs,fmt='rs')
 
-	def parameterFitness(self,params,Only_1S=False):
+	def parameterFitness(self,params,Only_1S=False,exclude=[]):
 
-		transitNumberAndTime = self.parameterTransitTimes(params,Only_1S)
+		transitNumberAndTime = self.parameterTransitTimes(params,Only_1S,exclude)
 		chi2 = 0.0	
 		for i in range(self.nPlanets):
 			sigma = self.transitUncertainties[i]
@@ -523,7 +537,7 @@ class MultiplanetAnalyticTTVSystem(object):
 		
 		return np.hstack((massAndEcc.reshape(-1),pAndLbest))
 
-##############################################################################################################################################################################
+###############################################################################################################################
 	
 	def forcedEccs(self,massesAndEccs,periodsAndMeanLongs):
 		
