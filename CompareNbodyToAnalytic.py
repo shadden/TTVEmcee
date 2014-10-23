@@ -1,4 +1,3 @@
-
 import glob
 import sys
 
@@ -43,16 +42,30 @@ mAnde,pAndl = analyticFit.TTVFastCoordTransform(pars)
 
 # Generate analytic transit times for the 'true' masses and eccentricities
 pAndLbest = analyticFit.bestFitPeriodAndLongitude(mAnde)
+transits = analyticFit.parameterTransitTimes(pAndLbest)
+
 chi2true = analyticFit.parameterFitness(pAndLbest)
 chi2true1sOnly = analyticFit.parameterFitness(pAndLbest,Only_1S=True)
-transits = analyticFit.parameterTransitTimes(pAndLbest)
+chi2true_exF = analyticFit.parameterFitness(pAndLbest,exclude=['F'])
+chi2true_ex2S = analyticFit.parameterFitness(pAndLbest,exclude=['2S'])
+
+
 
 
 # Find the best-fit masses and eccentricities for the analytic model and determine the transit times
 best_params = analyticFit.bestFitParameters(pAndLbest)[0]
+bestTransits = analyticFit.parameterTransitTimes(best_params)
+
+best_ex2S=analyticFit.bestFitParameters(best_params,exclude=['2S'])[0]
+chi2best_ex2S = analyticFit.parameterFitness(best_ex2S,exclude=['2S'])
+
+best_exF=analyticFit.bestFitParameters(best_params,exclude=['F'])[0]
+chi2best_exF = analyticFit.parameterFitness(best_exF,exclude=['F'])
+
 chi2best = analyticFit.parameterFitness(best_params)
 chi2best1sOnly = analyticFit.parameterFitness(best_params,Only_1S=True)
-bestTransits = analyticFit.parameterTransitTimes(best_params)
+
+
 	
 
 # Find best-fit masses and eccentricities for the nbody model and determine the times
@@ -120,6 +133,8 @@ print "A,Best: %6.3g \t %6.3g \t %6.3g \t %6.3g"%(best_params[1], best_params[2]
 print "N,Best: %6.3g \t %6.3g \t %6.3g \t %6.3g"%(nbFreeEcc[0], nbFreeEcc[1], nbFreeEcc[2], nbFreeEcc[3])
 print
 print "model \t X^2 (true) \t X^2 (best) \t m1 error \t m2 error"
-print  "%s \t %.5g \t %.5g \t %.3g \t %.3g "%("A,1S",chi2true1sOnly,chi2best1sOnly, (1.e-5 -best_params[0])/1.e-5 , (1.e-5 -best_params[3])/1.e-5)
-print  "%s \t %.5g \t %.5g \t %.3g \t %.3g "%("A,Full",chi2true,chi2best, (1.e-5 -best_params[0])/1.e-5 , (1.e-5 -best_params[3])/1.e-5 )
-print  "%s \t %.5g \t %.5g \t %.3g \t %.3g"%("N",noiseTotal,chi2nbest, (1.e-5 -bestNbody[0])/1.e-5 , (1.e-5 - bestNbody[3])/1.e-5)
+print  "%s \t %.5g \t %.5g \t %5.3g \t %+5.3g "%("A,1S",chi2true1sOnly,chi2best1sOnly,	(pars[0,0]-best_params[0])/pars[0,0] ,	(pars[1,0]-best_params[3])/pars[1,0])
+print  "%s \t %.5g \t %.5g \t %5.3g \t %+5.3g "%("A,1/2S",chi2true_exF, chi2best_exF, 	(pars[0,0]-best_exF[0])/pars[0,0] ,		(pars[1,0] - best_exF[3])/pars[1,0] )
+print  "%s \t %.5g \t %.5g \t %5.3g \t %+5.3g "%("A,1S+F",chi2true_ex2S,chi2best_ex2S,	(pars[0,0] -best_ex2S[0])/pars[0,0],	(pars[1,0]-best_ex2S[3])/pars[1,0])
+print  "%s \t %.5g \t %.5g \t %5.3g \t %+5.3g "%("A,Full",chi2true,chi2best, 			(pars[0,0]-best_params[0])/pars[0,0] ,	(pars[1,0]-best_params[3])/pars[1,0])
+print  "%s \t %.5g \t %.5g \t %5.3g \t %+5.3g"%("N",noiseTotal,chi2nbest, 				(pars[0,0]-bestNbody[0])/pars[0,0] , 	(pars[1,0]-bestNbody[3])/pars[1,0]  )
