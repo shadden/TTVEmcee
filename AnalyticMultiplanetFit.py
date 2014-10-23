@@ -487,7 +487,7 @@ class MultiplanetAnalyticTTVSystem(object):
 			chi2 += np.sum( np.power(diff,2)/ np.power(sigma,2) )
 		return -0.5 * chi2
 				
-	def bestFitParameters(self,params0):
+	def bestFitParameters(self,params0,exclude=[]):
 		target_data = np.array([])
 		errors = np.array([])
 		for i in range(self.nPlanets):
@@ -495,7 +495,7 @@ class MultiplanetAnalyticTTVSystem(object):
 			errors = np.append(errors,self.transitUncertainties[i])
 		
 		def objectivefn(x):
-			transitNumberAndTime =  self.parameterTransitTimes(x)
+			transitNumberAndTime =  self.parameterTransitTimes(x,exclude=exclude)
 			answer = np.array([],dtype=float)
 			for t in transitNumberAndTime:
 				answer = np.append( answer,np.array(t[:,1]) )
