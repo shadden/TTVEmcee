@@ -565,19 +565,23 @@ class MultiplanetAnalyticTTVSystem(object):
 		return np.vstack((exF,eyF)).T,np.vstack((ex-exF,ey-eyF)).T
 			
 	def TTVFastCoordTransform(self,ttvFastCoords):
-		# Transform to observer along x-axis:
-		tCoords = ttvfast2mycoords(ttvFastCoords)
+		# if the input is given as a list of elements in form [[mass,period,ecc,...],...]
 		
-		# Get parameters in eccentricity component form:
-		massAndEccentricities,periodsAndLongitudes = orbels2parameters(tCoords)
-
+		if ttvFastCoords.shape[-1] == 7:
+			# Transform to observer along x-axis:
+			tCoords = ttvfast2mycoords(ttvFastCoords)
+			# Get parameters in eccentricity component form:
+			massAndEccentricities,periodsAndLongitudes = orbels2parameters(tCoords)
+			periodsAndLongitudes[:,0] = self.periodEstimates
+		else:
+			massAndEccentricities = ttvFastCoords[:3*self.nPlanets].reshape(-1,3)
+			periodsAndLongitudes = self.bestFitPeriodAndLongitude(massAndEccentricities.reshape(-1,3))[-2*(self.nPlanets-1):]
+			periodsAndLongitudes = np.vstack((np.array([1.0,0.0]), periodsAndLongitudes.reshape(-1,2) ))
 		# convert total eccentricities to free eccentricities:
+		
 		eForced,eFree = self.forcedEccs(massAndEccentricities,periodsAndLongitudes)
-		
-		
 		mass = massAndEccentricities[:,0].reshape(-1,1)
 		# Replace instantaneous periods with approximate average period
-		periodsAndLongitudes[:,0] = self.periodEstimates
 		
 		return np.hstack((mass, eFree)), periodsAndLongitudes
 		
