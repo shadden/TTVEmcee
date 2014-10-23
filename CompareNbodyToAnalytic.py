@@ -113,6 +113,7 @@ for i,timedata in enumerate(zip(transits,bestTransits,bestNtransits,noisyData)):
 
 pl.show()
 nbFreeEcc = analyticFit.forcedEccs(np.array((bestNbody[0],bestNbody[2],-bestNbody[1], bestNbody[3], bestNbody[5], -bestNbody[4])),pAndl)[1].reshape(-1)
+
 print "Free eccentricity comparison"
 print "True: %6.3g \t %6.3g \t %6.3g \t %6.3g"%(mAnde[0][1],mAnde[0][2],mAnde[1][1],mAnde[1][2])
 print "A,Best: %6.3g \t %6.3g \t %6.3g \t %6.3g"%(best_params[1], best_params[2], best_params[4], best_params[5])
