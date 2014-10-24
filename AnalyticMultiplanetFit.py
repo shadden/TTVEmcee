@@ -155,7 +155,7 @@ class MultiplanetAnalyticTTVSystem(object):
 		ex,ey,ex1,ey1 = massesAndEccs[2:]
 		
 		# Input resonace information for pair
-		j = np.arange(1,6)
+		j = np.arange(1,LC.jMax)
 		delta = (j-1.)*periodRatio /j -1.
 		alpha = np.power( periodRatio, -2./3.)
 		f,f1e,f1i,df,df1e,df1i = map(lambda x: resData[x],('f','f1e','f1i','df','df1e','df1i'))
@@ -213,7 +213,7 @@ class MultiplanetAnalyticTTVSystem(object):
 
 		
 		# Input resonace information for pair
-		j = np.arange(1,6)
+		j = np.arange(1,LC.jMax)
 		k,k1,dk,dk1 = map(lambda x: resData[x],('k','k1','dk','dk1'))
 		
 		Vx = -mu1 / (j*(1-pRatio)) * ( 3.*pRatio * k/ ( np.sqrt(alpha) * (1.-pRatio) ) -2.*np.sqrt(alpha)*dk )
@@ -440,16 +440,35 @@ class MultiplanetAnalyticTTVSystem(object):
 		return [ np.vstack((self.transitNumbers[i],transform(times))).T for i,times in enumerate(unscaledTimes) ]
 	
 	def parameterTTVPlot(self,params,**kwargs):
-		fmt = kwargs.get('fmt','k.')
-		transitNumberAndTime = self.parameterTransitTimes(params)
-		for i,numAndTime in enumerate(transitNumberAndTime):
+		"""
+		Plot the TTVs from a list of different input parameters as well as the observed TTVs and their errorbars.
+		Parameters
+		----------
+		params : array
+		 List of parameters to analytic model for plotting.  Either an N x (5*nPlanets-2)  2-dimensional array
+		or a single set of (3*nPlanets-2) paramters.
+		"""
+		exclude = kwargs.get('exclude',[])
+		sparams = params.reshape(-1,self.nPlanets*5-2)
+		for i,data in enumerate(zip(self.transitNumbers,self.transitTimes,self.transitUncertainties)):
+			trNums,trTimes,trErrs = data 
 			pl.subplot(self.nPlanets*100 + 10 + i +1)
-			ttv = linefit_resids(numAndTime[:,0],numAndTime[:,1])
-			pl.plot(numAndTime[:,1],ttv,fmt)
+			ttv = linefit_resids(trNums,trTimes,trErrs)
+			pl.errorbar(trTimes,ttv,yerr=trErrs,fmt='kx')
+		for param in sparams:
+			fmt = kwargs.get('fmt','.')
+			transitNumberAndTime = self.parameterTransitTimes(param,exclude=exclude)
+			for i,numAndTime in enumerate(transitNumberAndTime):
+				pl.subplot(self.nPlanets*100 + 10 + i +1)
+				ttv = linefit_resids(numAndTime[:,0],numAndTime[:,1])
+				pl.plot(numAndTime[:,1],ttv,fmt)
 	
 	def parameterTTVResidualsPlot(self,params,normalized=False,**kwargs):
 		fmt = kwargs.get('fmt','k.')
-		transitNumberAndTime = self.parameterTransitTimes(params)
+		sparams = params.reshape(-1,self.nPlanets*5-2)
+		exclude = kwargs.get('exclude',[])
+
+		transitNumberAndTime = self.parameterTransitTimes(params,exclude=exclude)
 		for i,numAndTime in enumerate(transitNumberAndTime):
 			pl.subplot(self.nPlanets*100 + 10 + i +1)
 			resids = (self.transitTimes[i] - numAndTime[:,1])
@@ -459,9 +478,12 @@ class MultiplanetAnalyticTTVSystem(object):
 			pl.errorbar(numAndTime[:,1],resids,yerr=ebs,fmt=fmt)
 		
 	def parameterTTV1SResidualsPlot(self,paramsList,**kwargs):
-		fmt = kwargs.get('fmt','k.')
+		paramsList = paramsList.reshape(-1,self.nPlanets*5 -2)
+		fmt = kwargs.get('fmt','.')
+		exclude = kwargs.get('exclude',[])
+
 		for params in paramsList:
-			transitNumberAndTime = self.parameterTransitTimes(params)
+			transitNumberAndTime = self.parameterTransitTimes(params,exclude=exclude)
 			transit1Sonly = self.parameterTransitTimes(params,Only_1S=True)
 			for i,numAndTime in enumerate(transitNumberAndTime):
 				pl.subplot(self.nPlanets*100 + 10 + i +1)
@@ -473,8 +495,6 @@ class MultiplanetAnalyticTTVSystem(object):
 			obstrNums = self.transitNumbers[i]
 			obs_resids = self.transitTimes[i] - transit1Sonly[i][obstrNums,1]
 			ebs = self.transitUncertainties[i]
-			#print  self.transitTimes[i] - transit1Sonly[i][obstrNums,1]
-			#print map(len,(obs_resids,ebs,transit1Sonly[i][:,1]))
 			pl.errorbar(self.transitTimes[i],obs_resids,yerr=ebs,fmt='rs')
 
 	def parameterFitness(self,params,Only_1S=False,exclude=[]):
@@ -574,7 +594,9 @@ class MultiplanetAnalyticTTVSystem(object):
 			massAndEccentricities,periodsAndLongitudes = orbels2parameters(tCoords)
 			periodsAndLongitudes[:,0] = self.periodEstimates
 		else:
-			massAndEccentricities = ttvFastCoords[:3*self.nPlanets].reshape(-1,3)
+			coordCopy = ttvFastCoords.copy()
+			massAndEccentricities = coordCopy[:3*self.nPlanets].reshape(-1,3)
+			massAndEccentricities[:,1],massAndEccentricities[:,2] = massAndEccentricities[:,2],-massAndEccentricities[:,1]
 			periodsAndLongitudes = self.bestFitPeriodAndLongitude(massAndEccentricities.reshape(-1,3))[-2*(self.nPlanets-1):]
 			periodsAndLongitudes = np.vstack((np.array([1.0,0.0]), periodsAndLongitudes.reshape(-1,2) ))
 		# convert total eccentricities to free eccentricities:
