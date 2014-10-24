@@ -104,6 +104,7 @@ bestNtransits = [np.vstack((np.arange(len(x)),x)).T for x in bestNtransits ]
 ###################################################################################
 # Plot N-body and analytic transit times
 
+
 for i,timedata in enumerate(zip(transits,bestTransits,Transits_ex2S,Transits_exF,bestNtransits,noisyData)):
 	times,bestTimes,ex2Stimes,exFtimes,bestNtimes,obstimes = timedata
 
@@ -138,17 +139,23 @@ for i,timedata in enumerate(zip(transits,bestTransits,Transits_ex2S,Transits_exF
 	pl.errorbar(obstimes[:,1],bestResids,yerr=obstimes[:,2],fmt='rs')
 	pl.errorbar(bestNtimes[:,1],bestNresids,yerr=obstimes[:,2],fmt='bs')
 
+pl.figure(3)
+analyticFit.parameterTTV1SResidualsPlot(best_ex2S,exclude=['2S'],fmt = 'g.')
+analyticFit.parameterTTV1SResidualsPlot(best_exF,exclude=['F'], fmt='b.')
+analyticFit.parameterTTV1SResidualsPlot(np.array(( best_params,pAndLbest )),exclude=[],fmt = 'k.')
 pl.show()
-nbEx = -bestNbody[2:3*analyticFit.nPlanets:3]
-nbEy = bestNbody[1:3*analyticFit.nPlanets:3]
+nbEx = bestNbody[2:3*analyticFit.nPlanets:3]
+nbEy = -bestNbody[1:3*analyticFit.nPlanets:3]
 nbMandE = np.hstack( (  bestNbody[:3*analyticFit.nPlanets:3].reshape(-1,1) , vstack((nbEx,nbEy)).T ) )
 #nbFreeEcc = analyticFit.forcedEccs(np.array((bestNbody[0],bestNbody[2],-bestNbody[1], bestNbody[3], bestNbody[5], -bestNbody[4])),pAndl)[1].reshape(-1)
 nbFreeEcc = analyticFit.forcedEccs(nbMandE,pAndl)[1].reshape(-1)
 nPlanets = analyticFit.nPlanets
 print "Free eccentricity comparison"
-print "  True: %+6.3g \t %+6.3g \t %+6.3g \t %+6.3g"%(mAnde[0][1],mAnde[0][2],mAnde[1][1],mAnde[1][2])
-print "A,Best: %+6.3g \t %+6.3g \t %+6.3g \t %+6.3g"%(best_params[1], best_params[2], best_params[4], best_params[5])
-print "N,Best: %+6.3g \t %+6.3g \t %+6.3g \t %+6.3g"%(nbFreeEcc[0], nbFreeEcc[1], nbFreeEcc[2], nbFreeEcc[3])
+print "  True: ","\t".join(map(lambda x: "%+5.3f"%x , mAnde[:,(1,2)].reshape(-1) ) )
+best_eccs = best_params[:analyticFit.nPlanets*3].reshape(-1,3)[:,(1,2)].reshape(-1)
+print "A,Best: ","\t".join(map(lambda x: "%+5.3f"%x , best_eccs ) )
+print "N,Best: ","\t".join(map(lambda x: "%+5.3f"%x , nbFreeEcc ) )
+
 print
 
 print "model \t X^2 (true) \t X^2 (best) \t dm/m"
