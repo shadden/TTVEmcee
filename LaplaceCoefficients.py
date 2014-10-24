@@ -111,36 +111,37 @@ def h(alpha,j):
 #########################################################
 # array-returning functions
 #########################################################
+jMax  = 6
 def get_f_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ f(alpha,j) for j in arange(1,6)])
+	return array( [ f(alpha,j) for j in arange(1,jMax)])
 def get_f1Int_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ f1(alpha,j,perturber="Internal") for j in arange(1,6)])
+	return array( [ f1(alpha,j,perturber="Internal") for j in arange(1,jMax)])
 def get_f1Ext_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ f1(alpha,j,perturber="External") for j in arange(1,6)])
+	return array( [ f1(alpha,j,perturber="External") for j in arange(1,jMax)])
 def get_df_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ df(alpha,j) for j in arange(1,6)])
+	return array( [ df(alpha,j) for j in arange(1,jMax)])
 def get_df1Int_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ df1(alpha,j,perturber="Internal") for j in arange(1,6)])
+	return array( [ df1(alpha,j,perturber="Internal") for j in arange(1,jMax)])
 def get_df1Ext_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ df1(alpha,j,perturber="External") for j in arange(1,6)])
+	return array( [ df1(alpha,j,perturber="External") for j in arange(1,jMax)])
 def get_k_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ k(alpha,j) for j in arange(1,6)])
+	return array( [ k(alpha,j) for j in arange(1,jMax)])
 def get_k1_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ k1(alpha,j) for j in arange(1,6)])
+	return array( [ k1(alpha,j) for j in arange(1,jMax)])
 def get_dk_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ dk(alpha,j) for j in arange(1,6)])
+	return array( [ dk(alpha,j) for j in arange(1,jMax)])
 def get_dk1_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ dk1(alpha,j) for j in arange(1,6)])
+	return array( [ dk1(alpha,j) for j in arange(1,jMax)])
 def get_g_array(pratio):
 	alpha = pratio**(-2./3.)
 	return array( [ g(alpha,j) for j in arange(3,9)])
