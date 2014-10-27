@@ -231,7 +231,10 @@ if __name__=="__main__":
 		old_best_lnlike = fit(old_best)
 		print "%d x %d chain loaded"%p.shape
 		print "Best likelihood: %.1f"%old_best_lnlike
-		
+	
+	elif args.parfile:
+		old_best = pars0
+		old_best_lnlike = fit(old_best)
 	else:
 		# Initialize new walkers
 		if nbody:
@@ -263,7 +266,7 @@ if __name__=="__main__":
 # --- Burn-in Phase and Minimum Search --- #
 #------------------------------------------------
 	
-	if not restart and not args.noloop:
+	if not restart and not args.noloop and not args.parfile:
 	# If starting MCMC for first time, generate some samples to find a starting place from
 		print "Starting burn-in..."
 		for p,lnlike,blobs in sampler.sample(p, iterations=nburn, storechain = True):
@@ -282,7 +285,7 @@ if __name__=="__main__":
 		out=nbody_fit.CoplanarParametersTTVFit(old_best)
 		bestfit,cov = out[:2]
 
-		if fit(bestfit) > old_best_lnlike:
+		if fit(bestfit) >= old_best_lnlike:
 			print "Max likelihood via L-M least-squares: %.1f"%fit(bestfit)
 			p = random.multivariate_normal(bestfit,cov/(shrink*shrink),size=nwalkers)
 		else:
