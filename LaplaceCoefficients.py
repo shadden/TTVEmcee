@@ -111,7 +111,7 @@ def h(alpha,j):
 #########################################################
 # array-returning functions
 #########################################################
-jMax  = 6
+jMax  = 9
 def get_f_array(pratio):
 	alpha = pratio**(-2./3.)
 	return array( [ f(alpha,j) for j in arange(1,jMax)])
