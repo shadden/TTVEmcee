@@ -140,7 +140,7 @@ if __name__=="__main__":
 			masses = p0[:nplanets]
 			evecs = p0[nplanets:].reshape(-1,2)
 			ics = nbody_fit.GenerateRandomInitialConditions(masses,0.1,evecs,0.005,nwalk)
-			return ics
+			return array(ics)
 				
 
 	#----------------------------------------------------------------------		
