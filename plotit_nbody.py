@@ -146,12 +146,12 @@ with open("summary.txt",'w') as fi:
 	for i in range(nplanets):
 		fi.write("Planet %d:\n"%i)
 		fi.write("(Median,+,-)\n")
-		fi.write("\t68 pct. Mass: %.2g, %.2g, %.2g\n"%dataMedianAndRange( masses[:,i], q = 68.))
-		fi.write("\t95 pct. Mass: %.2g, %.2g, %.2g\n"%dataMedianAndRange( masses[:,i], q = 95. ))
-		fi.write("\t68 pct. ex: %.3f, %.3f, %.3f\n"%dataMedianAndRange( evals[:,i], q = 68. ))
-		fi.write("\t95 pct. ex: %.3f, %.3f, %.3f\n"%dataMedianAndRange( evals[:,i], q = 95. ))
-		fi.write("\t68 pct. ey: %.3f, %.3f, %.3f\n"%dataMedianAndRange( evals[:,i+1], q = 68.))
-		fi.write("\t95 pct. ey: %.3f, %.3f, %.3f\n"%dataMedianAndRange( evals[:,i+1], q = 95. ))
+		fi.write("\t68 pct. Mass (x 1E6): %.1f^{%+.1f}_{%+.1f}\n"%dataMedianAndRange( masses[:,i]*1e6, q = 68.))
+		fi.write("\t95 pct. Mass (x 1E6): %.1f^{%+.1f}_{%+.1f}\n"%dataMedianAndRange( masses[:,i]*1e6, q = 95. ))
+		fi.write("\t68 pct. ex: %+.3f^{%+.3f}_{%+.3f}\n"%dataMedianAndRange( evals[:,2*i], q = 68. ))
+		fi.write("\t95 pct. ex: %+.3f^{%+.3f}_{%+.3f}\n"%dataMedianAndRange( evals[:,2*i], q = 95. ))
+		fi.write("\t68 pct. ey: %+.3f^{%+.3f}_{%+.3f}\n"%dataMedianAndRange( evals[:,2*i+1], q = 68.))
+		fi.write("\t95 pct. ey: %+.3f^{%+.3f}_{%+.3f}\n"%dataMedianAndRange( evals[:,2*i+1], q = 95. ))
 np.savetxt("bestpars.txt",best)
 
 plotData = np.array([reshapeChain(x) for x in chain[lnlike>minlnlike]])
