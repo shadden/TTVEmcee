@@ -482,28 +482,40 @@ class MultiplanetAnalyticTTVSystem(object):
 		fmt = kwargs.get('fmt','.')
 		exclude = kwargs.get('exclude',[])
 		showObs = kwargs.get('showObs',True)
-
+		label = kwargs.get('label',None)
+		print label
+		axList = []
+		# Set up axes
+		
+		for i in range(self.nPlanets):
+			if i==0:
+				axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1) )
+			else:
+				axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1,sharex=axList[0]) )
+			if i != self.nPlanets-1:
+					pl.setp( axList[i].get_xticklabels(), visible=False )
+			#axList[i].yaxis.set_major_locator( MaxNLocator(8) )
+			#pl.subplot(self.nPlanets*100 + 10 + i +1)
+		pl.subplots_adjust(hspace=0.0)
+		
 		for params in paramsList:
+			
 			transitNumberAndTime = self.parameterTransitTimes(params,exclude=exclude)
 			transit1Sonly = self.parameterTransitTimes(params,Only_1S=True)
-			axList = []
-			for i,numAndTime in enumerate(transitNumberAndTime):
-				if i==0:
-					axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1) )
-				else:
-					axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1,sharex=axList[0]) )
-				if i != self.nPlanets-1:
-					pl.setp( axList[i].get_xticklabels(), visible=False )
-				 
+			
+			for i,numAndTime in enumerate(transitNumberAndTime): 
+			
 				resids = (numAndTime[:,1]-transit1Sonly[i][:,1])
-				pl.plot(numAndTime[:,1],resids,fmt)
+				axList[i].plot(numAndTime[:,1],resids,fmt,label=label)
+			
+				if  showObs:
+					obs_resids = self.transitTimes[i] - transit1Sonly[i][:,1]
+					ebs = self.transitUncertainties[i]
+					axList[i].errorbar(self.transitTimes[i],obs_resids,yerr=ebs,fmt='kx',label='Observed')
+		
+		return axList
 
-		if showObs:
-			for i in range(self.nPlanets):
-				pl.subplot(self.nPlanets*100 + 10 + i +1)
-				obs_resids = self.transitTimes[i] - transit1Sonly[i][:,1]
-				ebs = self.transitUncertainties[i]
-				pl.errorbar(self.transitTimes[i],obs_resids,yerr=ebs,fmt='rs')
+
 
 	def parameterFitness(self,params,Only_1S=False,exclude=[]):
 
@@ -616,7 +628,25 @@ class MultiplanetAnalyticTTVSystem(object):
 		return np.hstack((mass, eFree)), periodsAndLongitudes
 		
 ##############################################################################################################################################################################
-	
+
+if __name__=="__main__":
+ with open('planets.txt') as fi:
+	 plfiles = [line.strip() for line in fi.readlines()]
+
+ noisyData= [ np.loadtxt(planet) for planet in plfiles ]
+ analyticFit = MultiplanetAnalyticTTVSystem(noisyData)
+ analyticFit.parameterTTV1SResidualsPlot(pAndLbest,label='Full Analytic Model',fmt='bs-')
+ axList = analyticFit.parameterTTV1SResidualsPlot(pAndLbest,exclude=['F'],showObs=False,label='No Fast Terms',fmt='rs-')
+ axList[-1].legend(loc=3)
+
+ xlabel('Time')
+ ylabel('TTV')
+ sca(axList[0])
+ for ax in axList:
+			ax.set_yticks( ax.get_yticks()[1:-1] )
+ title('Kepler-51 TTV Sinusoid Model Residuals',fontsize=20)
+ 
+ show()
 # ---------------------------	#	#	#	#	#	--------------------------- #
 
 # if __name__=="__main__":
