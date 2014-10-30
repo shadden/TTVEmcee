@@ -99,7 +99,7 @@ else:
 bestNbody = nbodyFit.CoplanarParametersTTVFit(coplanarPars0)[0]
 chi2nbest = nbodyFit.CoplanarParametersFitness(bestNbody)
 bestNtransits = nbodyFit.CoplanarParametersTransformedTransits(bestNbody,observed_only=True)[0]
-bestNtransits = [np.vstack((np.arange(len(x)),x)).T for x in bestNtransits ]
+bestNtransits = [np.vstack((num,t)).T for num,t in zip(nbodyFit.transit_numbers,bestNtransits) ]
 
 ###################################################################################
 # Plot N-body and analytic transit times
@@ -140,9 +140,10 @@ for i,timedata in enumerate(zip(transits,bestTransits,Transits_ex2S,Transits_exF
 	pl.errorbar(bestNtimes[:,1],bestNresids,yerr=obstimes[:,2],fmt='bs')
 
 pl.figure(3)
-analyticFit.parameterTTV1SResidualsPlot(best_ex2S,exclude=['2S'],fmt = 'g.')
-analyticFit.parameterTTV1SResidualsPlot(best_exF,exclude=['F'], fmt='b.')
-analyticFit.parameterTTV1SResidualsPlot(np.array(( best_params,pAndLbest )),exclude=[],fmt = 'k.')
+
+analyticFit.parameterTTV1SResidualsPlot(best_ex2S,exclude=['2S'], showObs=False, fmt = 'g.')
+analyticFit.parameterTTV1SResidualsPlot(best_exF,exclude=['F'], showObs=False, fmt='b.')
+analyticFit.parameterTTV1SResidualsPlot(best_params, exclude=[], fmt = 'k.')
 pl.show()
 nbEx = bestNbody[2:3*analyticFit.nPlanets:3]
 nbEy = -bestNbody[1:3*analyticFit.nPlanets:3]

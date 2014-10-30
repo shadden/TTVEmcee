@@ -481,21 +481,29 @@ class MultiplanetAnalyticTTVSystem(object):
 		paramsList = paramsList.reshape(-1,self.nPlanets*5 -2)
 		fmt = kwargs.get('fmt','.')
 		exclude = kwargs.get('exclude',[])
+		showObs = kwargs.get('showObs',True)
 
 		for params in paramsList:
 			transitNumberAndTime = self.parameterTransitTimes(params,exclude=exclude)
 			transit1Sonly = self.parameterTransitTimes(params,Only_1S=True)
+			axList = []
 			for i,numAndTime in enumerate(transitNumberAndTime):
-				pl.subplot(self.nPlanets*100 + 10 + i +1)
+				if i==0:
+					axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1) )
+				else:
+					axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1,sharex=axList[0]) )
+				if i != self.nPlanets-1:
+					pl.setp( axList[i].get_xticklabels(), visible=False )
+				 
 				resids = (numAndTime[:,1]-transit1Sonly[i][:,1])
 				pl.plot(numAndTime[:,1],resids,fmt)
 
-		for i in range(self.nPlanets):
-			pl.subplot(self.nPlanets*100 + 10 + i +1)
-			obstrNums = self.transitNumbers[i]
-			obs_resids = self.transitTimes[i] - transit1Sonly[i][obstrNums,1]
-			ebs = self.transitUncertainties[i]
-			pl.errorbar(self.transitTimes[i],obs_resids,yerr=ebs,fmt='rs')
+		if showObs:
+			for i in range(self.nPlanets):
+				pl.subplot(self.nPlanets*100 + 10 + i +1)
+				obs_resids = self.transitTimes[i] - transit1Sonly[i][:,1]
+				ebs = self.transitUncertainties[i]
+				pl.errorbar(self.transitTimes[i],obs_resids,yerr=ebs,fmt='rs')
 
 	def parameterFitness(self,params,Only_1S=False,exclude=[]):
 
