@@ -14,6 +14,7 @@ import numpy as np
 from argparse import ArgumentParser
 import matplotlib.pyplot as pl
 from emcee.autocorr import *
+
 parser = ArgumentParser(description='Make plots from the output of ensemble sampler with N-body likelihood calculations')
 parser.add_argument('--minlnlike','-L', metavar='F', type=float, default= -np.inf, help='Minimum log-likelihood of chain values to include in plot. Default setting includes all values.')
 parser.add_argument('--file','-f',metavar='PREFIX',default=None, help='Save the generated plots as PREFIX_[plot type].png')
@@ -21,13 +22,10 @@ parser.add_argument('--noPlots',default=False, action='store_true' ,help='Don\'t
 parser.add_argument('--truths',metavar='FILE',default=None ,help='File containing the true masses and eccentricity components to show on triangle plot')
 parser.add_argument('--extents',metavar='FILE',default=None ,help='File containing parameter extents to show in triangle plot')
 parser.add_argument('--analytic',default=False, action='store_true' ,help='Show plots using analytic TTV approximation')
-parser.add_argument('--nwalkers','-N',type=int,default=300,help='Number of walkers used, needed to resconstruct autocorrelation information')
-
-convergenceTests=True
 
 args = parser.parse_args()
 minlnlike = args.minlnlike
-nwalkers = args.nwalkers
+
 if args.analytic:
 	import  AnalyticMultiplanetFit as ttv
 else:
@@ -60,31 +58,6 @@ def dataMedianAndRange(data,q=90.0):
 	hi = np.percentile(data,100. - dq)
 	return (med,hi-med,lo-med)
 
-def acorfn(a,lag):
-	mu = np.mean(a)
-	if lag==0:
-		cff = np.mean(a*a) - mu**2
-	else:
-		cff = np.mean(a[:-lag] * a[lag:]) - mu**2
-	return cff
-
-def expfn(data,tau):
-	return np.exp(-data / tau)
-
-def parameterAcor(chain,ipar,maxlag=30):
-	all_data = []
-	for walker in nwalkers:
-		pchain = chain[:,walker,ipar]
-		data = np.array([(lag,acorfn(pchain,lag)/norm) for lag in range(50)])
-		all_data.append(data)
-	
-	all_data = np.array(all_data)
-	mean_data = np.mean(all_data,axis=0)
-	base_line,=plot(mean_data[:,0],mean_data[:,1])
-	tau = curve_fit(expfn,meandata[:,0],meandata[:,1])[0][0]
-	pl.plot(mean_data[:,0],expfn(mean_data[:,0],tau),'--',c=base_line.get_color())
-	pl.show()
-	return tau,mean_data
 #innerttvs,outerttvs = np.loadtxt('inner.ttv'),np.loadtxt('outer.ttv')
 with open('planets.txt','r') as fi:
 	plfiles = [line.strip() for line in fi.readlines()]
@@ -93,46 +66,6 @@ nplanets = len(plfiles)
 ttvs = []
 periods = np.zeros(nplanets)
 lnlike,chain = np.loadtxt('./chain.lnlike.dat.gz'),np.loadtxt('./chain.dat.gz')
-
-# Reshape chain
-if convergenceTests:
-
-	npars = chain.shape[-1]
-	chainlength = chain.shape[0]
-	ntake = int(ceil(0.8 * chainlength/nwalkers) * nwalkers)
-
-	schain = chain[-ntake:].reshape(-1,nwalkers,npars)
-assert False
-#	taus = []
-#	for i in range(npars):
-#		all_data = []
-#		for walker in range(nwalkers):
-#			pchain = schain[:,walker,i]
-#			norm = acorfn(pchain,0)
-#			data = np.array([(lag,acorfn(pchain,lag)/norm) for lag in range(50)])
-#			all_data.append(data)
-#		all_data = array(all_data)
-#		mean_data = np.mean(all_data,axis=0)
-#		base_line,=plot(mean_data[:,0],mean_data[:,1])
-#		tau = curve_fit(func,meandata[:,0],meandata[:,1])[0][0]
-#		taus.append(tau)
-#		pl.plot(mean_data[:,0],expfn(mean_data[:,0],tau),'--',c=base_line.get_color())
-#
-pl.show()
-		
-
-#	acorArray = np.array([ integrated_time(schain[:,j,:],window=100) for j in range(nwalkers) ])
-#	effectiveSamples = len(schain) / acorArray
-#
-#	with open("ConvergenceSummary.txt","w") as fi:
-#		for j in range(nwalkers):
-#			fi.write("\t".join(map( lambda x: "%.1f"%x , effectiveSamples[j])))
-#			fi.write("\n")
-#		fi.write("total:\n")
-#		fi.write("\t".join(map( lambda x: "%.1f"%x , np.sum(effectiveSamples,axis=0) )))
-#		fi.write("\navg per walker:\n")
-#		fi.write("\t".join(map( lambda x: "%.1f"%x , np.sum(effectiveSamples,axis=0) /nwalkers)))
-
 			
 
 rot = np.array([[0.,1.,0.,.0],[-1.,0.,0.,0.],[0.,0.,0.,1.],[0.,0.,-1.0,0.]])
