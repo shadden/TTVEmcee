@@ -309,9 +309,9 @@ if __name__=="__main__":
 			pass	
 
 		print '(%d/%d) acceptance fraction = %.3f'%( k+1, nloops, mean(sampler.acceptance_fraction) )
-		print 'Autocorrelation lengths: '
-		print acorstring
-		print '\t'.join(map(lambda x: '{0:.1f}'.format(x), sampler.acor))
+		#print 'Autocorrelation lengths: '
+		#print acorstring
+		#print '\t'.join(map(lambda x: '{0:.1f}'.format(x), sampler.acor))
 		sys.stdout.flush()
 
 		maxlnlike = max(lnlike)
