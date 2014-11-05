@@ -86,10 +86,12 @@ def reshapeChain(walkerPosition):
 	massvals = walkerPosition[mass_indices,]
 	evals = walkerPosition[e_indices,].reshape(-1,2)
 	rMatrix = np.array([[0.,1.],[-1.,0]])
+	
 	if args.analytic:
 		return np.append(massvals,(evals).reshape(-1)) 
 	else:
-		return np.append(massvals,np.dot(evals,rMatrix).reshape(-1)) 
+		evec = np.array([np.dot(rMatrix,v) for v in evals]).reshape(-1)
+		return np.append(massvals,evec) 
 
 def get_j_delta(p1,p2):
 	pratio = np.min((p2/p1,p1/p2))
@@ -187,7 +189,7 @@ if not args.noPlots:
 	
 #-- Pair-wise mass versus Z plots --#
 	for i in range(nplanets-1):
-		triangle.corner(np.hstack( ( chain[:,(3*i,3*(i+1))],Zdat[i] ) )[lnlike > minlnlike] , labels = ('m','m1','Zx','Zy','|Z|') )
+		triangle.corner(np.hstack( ( chain[:,(3*i,3*(i+1))],Zdat[i] ) )[lnlike > minlnlike] , labels = ('m','m1','Zx','Zy','|Z|') ,quantiles=[0.16,0.5,0.84])
 		if args.file:
 			pl.savefig("%s_mass-vs-Z_%d.png"%(args.file,i))
 	
@@ -201,7 +203,7 @@ if not args.noPlots:
 
 	lbls = tuple(flatlabels)
 
-	triangle.corner(plotData , labels = lbls ,truths=truths,extents=extnts)
+	triangle.corner(plotData , labels = lbls ,truths=truths,extents=extnts,quantiles=[0.16,0.5,0.84])
 
 	if args.file:
 		pl.savefig("%s_mass-vs-ecc.png"%args.file)
