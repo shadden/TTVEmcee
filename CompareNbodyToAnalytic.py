@@ -147,7 +147,7 @@ analyticFit.parameterTTV1SResidualsPlot(best_params, exclude=[], fmt = 'k.')
 pl.show()
 nbEx = bestNbody[2:3*analyticFit.nPlanets:3]
 nbEy = -bestNbody[1:3*analyticFit.nPlanets:3]
-nbMandE = np.hstack( (  bestNbody[:3*analyticFit.nPlanets:3].reshape(-1,1) , vstack((nbEx,nbEy)).T ) )
+nbMandE = np.hstack( (  bestNbody[:3*analyticFit.nPlanets:3].reshape(-1,1) , np.vstack((nbEx,nbEy)).T ) )
 #nbFreeEcc = analyticFit.forcedEccs(np.array((bestNbody[0],bestNbody[2],-bestNbody[1], bestNbody[3], bestNbody[5], -bestNbody[4])),pAndl)[1].reshape(-1)
 nbFreeEcc = analyticFit.forcedEccs(nbMandE,pAndl)[1].reshape(-1)
 nPlanets = analyticFit.nPlanets
