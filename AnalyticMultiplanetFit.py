@@ -635,6 +635,7 @@ if __name__=="__main__":
 
  noisyData= [ np.loadtxt(planet) for planet in plfiles ]
  analyticFit = MultiplanetAnalyticTTVSystem(noisyData)
+
  analyticFit.parameterTTV1SResidualsPlot(pAndLbest,label='Full Analytic Model',fmt='bs-')
  axList = analyticFit.parameterTTV1SResidualsPlot(pAndLbest,exclude=['F'],showObs=False,label='No Fast Terms',fmt='rs-')
  axList[-1].legend(loc=3)
@@ -644,7 +645,7 @@ if __name__=="__main__":
  sca(axList[0])
  for ax in axList:
 			ax.set_yticks( ax.get_yticks()[1:-1] )
- title('Kepler-51 TTV Sinusoid Model Residuals',fontsize=20)
+ title('Kepler-114 TTV Sinusoid Model Residuals',fontsize=20)
  
  show()
 # ---------------------------	#	#	#	#	#	--------------------------- #
