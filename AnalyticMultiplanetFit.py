@@ -450,18 +450,37 @@ class MultiplanetAnalyticTTVSystem(object):
 		"""
 		exclude = kwargs.get('exclude',[])
 		sparams = params.reshape(-1,self.nPlanets*5-2)
+		axList = []
 		for i,data in enumerate(zip(self.transitNumbers,self.transitTimes,self.transitUncertainties)):
+			if i==0:
+				axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1) )
+			else:
+				axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1,sharex=axList[0]) )
+			if i != self.nPlanets-1:
+					pl.setp( axList[i].get_xticklabels(), visible=False )
+
 			trNums,trTimes,trErrs = data 
-			pl.subplot(self.nPlanets*100 + 10 + i +1)
+			#pl.subplot(self.nPlanets*100 + 10 + i +1)
+			
 			ttv = linefit_resids(trNums,trTimes,trErrs)
-			pl.errorbar(trTimes,ttv,yerr=trErrs,fmt='kx')
+			axList[i].errorbar(trTimes,ttv,yerr=trErrs,fmt='kx')
+		
+		pl.subplots_adjust(hspace=0.0)
+		
 		for param in sparams:
 			fmt = kwargs.get('fmt','.')
 			transitNumberAndTime = self.parameterTransitTimes(param,exclude=exclude)
 			for i,numAndTime in enumerate(transitNumberAndTime):
-				pl.subplot(self.nPlanets*100 + 10 + i +1)
+				#pl.subplot(self.nPlanets*100 + 10 + i +1)
 				ttv = linefit_resids(numAndTime[:,0],numAndTime[:,1])
-				pl.plot(numAndTime[:,1],ttv,fmt)
+				axList[i].plot(numAndTime[:,1],ttv,fmt)
+		
+		
+		for ax in axList:
+			yticks = ax.get_yticks()
+			ax.set_yticks(yticks[1:-1])
+	
+	
 	
 	def parameterTTVResidualsPlot(self,params,normalized=False,**kwargs):
 		fmt = kwargs.get('fmt','k.')
@@ -630,24 +649,55 @@ class MultiplanetAnalyticTTVSystem(object):
 ##############################################################################################################################################################################
 
 if __name__=="__main__":
- with open('planets.txt') as fi:
-	 plfiles = [line.strip() for line in fi.readlines()]
-
- noisyData= [ np.loadtxt(planet) for planet in plfiles ]
- analyticFit = MultiplanetAnalyticTTVSystem(noisyData)
-
- analyticFit.parameterTTV1SResidualsPlot(pAndLbest,label='Full Analytic Model',fmt='bs-')
- axList = analyticFit.parameterTTV1SResidualsPlot(pAndLbest,exclude=['F'],showObs=False,label='No Fast Terms',fmt='rs-')
- axList[-1].legend(loc=3)
-
- xlabel('Time')
- ylabel('TTV')
- sca(axList[0])
- for ax in axList:
-			ax.set_yticks( ax.get_yticks()[1:-1] )
- title('Kepler-114 TTV Sinusoid Model Residuals',fontsize=20)
+	with open('planets.txt') as fi:
+		plfiles = [line.strip() for line in fi.readlines()]
+	
+	noisyData= [ np.loadtxt(planet) for planet in plfiles ]
+	analyticFit = MultiplanetAnalyticTTVSystem(noisyData)
  
- show()
+ 	try:
+ 		pars = loadtxt("bestpars.txt")
+ 		mAndE = pars[:3*analyticFit.nPlanets].reshape(-1,3)
+ 		R = np.array([[0,1],[-1,0]])
+ 		mAndE[:,(1,2)] = np.array( [np.dot(R,v) for v in mAndE[:,(1,2)] ])
+ 		newpars = analyticFit.bestFitPeriodAndLongitude(mAndE)
+ 		print "Old X^2: %.1f \t New X^2 %.1f \n"%tuple(map(analyticFit.parameterFitness,(pars,newpars)))
+	except:
+ 		print "No parameter file `bestpars.txt' found."
+
+	target_data = np.array([])
+	errors = np.array([])
+	for i in range(analyticFit.nPlanets):
+		target_data = np.append(target_data,analyticFit.transitTimes[i])
+		errors = np.append(errors,analyticFit.transitUncertainties[i])
+		
+	def objectivefn(x):
+		transitNumberAndTime = analyticFit.TransitTimes( mAndE, x[:-1] )
+		answer = np.array([],dtype=float)
+		for t in transitNumberAndTime:
+			answer = np.append( answer,np.array(t[:,1]+x[-1]) )
+			#
+		return (answer - target_data)/errors	 
+	
+	tGlobal0=np.min(analyticFit.tInitEstimates)
+	p0 = analyticFit.periodEstimates
+	L0 =  - 2*pi * (analyticFit.tInitEstimates - tGlobal0) / p0
+	x0 = np.append(np.vstack((p0,L0)).T.reshape(-1),tGlobal0)
+	
+	print objectivefn(x0)
+
+#  analyticFit.parameterTTV1SResidualsPlot(pAndLbest,label='Full Analytic Model',fmt='bs-')
+#  axList = analyticFit.parameterTTV1SResidualsPlot(pAndLbest,exclude=['F'],showObs=False,label='No Fast Terms',fmt='rs-')
+#  axList[-1].legend(loc=3)
+# 
+#  xlabel('Time')
+#  ylabel('TTV')
+#  sca(axList[0])
+#  for ax in axList:
+# 			ax.set_yticks( ax.get_yticks()[1:-1] )
+#  title('Kepler-114 TTV Sinusoid Model Residuals',fontsize=20)
+#  
+#  show()
 # ---------------------------	#	#	#	#	#	--------------------------- #
 
 # if __name__=="__main__":
