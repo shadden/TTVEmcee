@@ -171,8 +171,11 @@ if __name__=="__main__":
 			bad_eccs = any(exs**2 +eys**2 >= 0.9**2)
 			if bad_eccs:
 				return -inf
-	
-			return analytic_fit.parameterFitness(x,Only_1S=first_order)
+			
+			if True:
+				logp = sum(log( 1. / (0.01+sqrt(exs**2+eys**2)) ))
+				
+			return analytic_fit.parameterFitness(x,Only_1S=first_order) + logp
 
 		# Walker initialization
 		#--------------------------------------------
