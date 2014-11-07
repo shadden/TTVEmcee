@@ -42,6 +42,7 @@ if __name__=="__main__":
 	parser.add_argument('--analytic',default=False,action='store_true', help='Run MCMC using analytic TTV formula to compute the likelihood of parameters')
 	parser.add_argument('--first_order',default=False,action='store_true', help='Use only the 1S term for analytic TTVs')
 	parser.add_argument('--input','-I',metavar='FILE',default='planets.txt',help='File that lists the names of the files containing input transits')
+	parser.add_argument('--priors',metavar='[g | l]',default=None,help='Use eccentricity priors. g: Gaussian , l: log-uniform')
 
 	#----------------------------------------------------------------------------------
 	# command-line arguments:
@@ -56,6 +57,7 @@ if __name__=="__main__":
 	infile = args.input
 	nbody = (not args.analytic)
 	first_order = args.first_order
+	priors = args.priors
 
 	#----------------------------------------------------------------------------------
 
@@ -131,7 +133,14 @@ if __name__=="__main__":
 			if bad_eccs:
 				return -inf
 	
-			return nbody_fit.CoplanarParametersFitness(x)
+			if priors=='g':
+				logp = -1.0*sum( 0.5 * (exs**2 + eys**2 ) / 0.017**2 )
+			elif priors =='l':
+				logp = np.sum( log10( 1.0 / sqrt(exs**2 + eys**2) ) )
+			else:
+				logp = 0.0
+
+			return nbody_fit.CoplanarParametersFitness(x) + logp
 	
 		# Walker initialization
 		#--------------------------------------------
@@ -172,8 +181,12 @@ if __name__=="__main__":
 			if bad_eccs:
 				return -inf
 			
-			if True:
-				logp = sum(log( 1. / (0.01+sqrt(exs**2+eys**2)) ))
+			if priors=='g':
+				logp = -1.0*sum( 0.5 * (exs**2 + eys**2 ) / 0.017**2 )
+			elif priors =='l':
+				logp = np.sum( log10( 1.0 / sqrt(exs**2 + eys**2) ) )
+			else:
+				logp = 0.0
 				
 			return analytic_fit.parameterFitness(x,Only_1S=first_order) + logp
 
@@ -260,9 +273,9 @@ if __name__=="__main__":
 
 	if not restart or args.erase:
 		with gzip.open('chain.dat.gz', 'w') as out:
-				out.write("# Parameter Chains")
+				out.write("# Parameter Chains\n")
 		with gzip.open('chain.lnlike.dat.gz', 'w') as out:
-				out.write("# Likelihoods")
+				out.write("# Likelihoods\n")
 
 	acorstring = ('\t'.join(["M%d\tEX%d\tEY%d"%(d,d,d) for d in range(nplanets)]))+'\t'+('\t'.join(["P%d\tdL%d"%(d,d) for d in range(1,nplanets)]))
 #------------------------------------------------
@@ -308,13 +321,10 @@ if __name__=="__main__":
 		if args.noloop:
 			break
 		# take 'nthin' samples.
-		for p,lnlike,blobs in sampler.sample(p,iterations=nthin, storechain = True):
+		for p,lnlike,blobs in sampler.sample(p,iterations=nthin, storechain = False):
 			pass	
 
 		print '(%d/%d) acceptance fraction = %.3f'%( k+1, nloops, mean(sampler.acceptance_fraction) )
-		#print 'Autocorrelation lengths: '
-		#print acorstring
-		#print '\t'.join(map(lambda x: '{0:.1f}'.format(x), sampler.acor))
 		sys.stdout.flush()
 
 		maxlnlike = max(lnlike)
@@ -333,7 +343,6 @@ if __name__=="__main__":
 
 		# Append current state to chain file
 		with gzip.open('chain.dat.gz', 'a') as out:
-			#print 'appending to chain: ',p.shape
 			savetxt(out, p)
 		with gzip.open('chain.lnlike.dat.gz', 'a') as out:
 			savetxt(out, lnlike)
