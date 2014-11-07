@@ -9,6 +9,8 @@ parser.add_argument('--nwalkers','-N',type=int,default=300,\
 	help='Number of walkers used, needed to resconstruct autocorrelation information')
 parser.add_argument('--dryrun','-D',default=False,action='store_true',\
 	help='Do not load chain files or compute any information.')
+parser.add_argument('--maxlag','-L',type=int,default=30,\
+	help='Maximum lag value to use in computing autocorrelation lengths')
 
 args = parser.parse_args()
 nwalkers=args.nwalkers
@@ -24,7 +26,7 @@ def acorfn(a,lag):
 def expfn(data,tau):
 	return np.exp(-data / tau)
 
-def parameterAcor(chain,ipar,maxlag=30,plot_data=False):
+def parameterAcor(chain,ipar,maxlag=args.maxlag,plot_data=False):
 	all_data = []
 	for walker in range(nwalkers):
 		pchain = chain[:,walker,ipar]
@@ -41,20 +43,29 @@ def parameterAcor(chain,ipar,maxlag=30,plot_data=False):
 	
 	return tau
 
+def shape_chain(chain,nwalk,pct_drop=0.1):
+	npars = chain.shape[-1]
+	npl = (npars+2) / 5
+	chainlength=chain.shape[0]
+	ntake = int( np.ceil( (1-pct_drop) * chainlength/nwalk ) * nwalk )
+	schain = chain[-ntake:].reshape(-1,nwalk,npars)
+	return schain
 if not args.dryrun:
 	lnlike,chain = np.loadtxt('./chain.lnlike.dat.gz'),np.loadtxt('./chain.dat.gz')
-	npars = chain.shape[-1]
-	nplanets = (npars + 2) / 5
-	chainlength = chain.shape[0]
-	ntake = int(np.ceil(0.9 * chainlength/nwalkers) * nwalkers)
-	schain = chain[-ntake:].reshape(-1,nwalkers,npars)
+	schain = shape_chain(chain,nwalkers,0.1)
 	
+	nplanets = (chain.shape[-1]+2) / 5
 	taus = []
 	for ipar in range(3*nplanets):
 		taus.append( parameterAcor(schain,ipar,plot_data=True) )
 
 	
-	for i,tau in enumerate(taus):
-		print i,tau
+	with open("correlation_lengths.txt","w") as fi:
+		fi.write("N: %d \t Nwalk: %d\n"%(schain.shape[0],schain.shape[1]))
+		fi.write( "param \t tau \t N_eff \n")
+		for i,tau in enumerate(taus):
+			fi.write( "%d \t %.1f \t %.1f \n"%(i,tau, nwalkers*schain.shape[0]/tau) )
+			print i, tau, schain.shape[0]/tau
 	
 	pl.show()
+	
