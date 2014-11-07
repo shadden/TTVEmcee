@@ -77,7 +77,7 @@ def ConfidenceRegions2D(x,y,*args,**kwargs):
 	except ValueError:
 		raise ValueError("It looks like at least one of your sample columns have no dynamic range. You could try using the `extent` argument.")
 
-	V = np.array([0.,0.68,0.95,0.99]) # 1.0 - np.exp(-0.5 * np.arange(0.5, 2.1, 0.5) ** 2) # 
+	V = np.array([0.,0.68,0.99])#np.array([0.,0.68,0.95,0.99]) # 1.0 - np.exp(-0.5 * np.arange(0.5, 2.1, 0.5) ** 2) # 
 	Hflat = H.flatten()
 	inds = np.argsort(Hflat)[::-1]
 	Hflat = Hflat[inds]
@@ -93,7 +93,8 @@ def ConfidenceRegions2D(x,y,*args,**kwargs):
 	X1, Y1 = 0.5 * (X[1:] + X[:-1]), 0.5 * (Y[1:] + Y[:-1])
 	X, Y = X[:-1], Y[:-1]
 
-	ax.contourf(X1, Y1, H.T,V[::-1],cmap = cmap)
+	ax.contour(X1, Y1, H.T,V[::-1],colors=cmap(1.),linestyles='-')
+	ax.contourf(X1, Y1, H.T,V[::-1],cmap = cmap,alpha=kwargs.pop("alpha",1))
 
 	ax.set_xlim(extent[0])
 	ax.set_ylim(extent[1])
