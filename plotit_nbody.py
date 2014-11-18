@@ -70,6 +70,9 @@ def ConfidenceRegions2D(x,y,*args,**kwargs):
 	bins = kwargs.pop("bins", 50)
 	color = kwargs.pop("color", "k")
 	cmap = kwargs.pop("cmap",cm.get_cmap("Blues"))
+	label = kwargs.pop("label",None)
+	levels = np.hstack(( [0.0] , kwargs.pop("levels",[0.68]) )) 
+
 	X = np.linspace(extent[0][0], extent[0][1], bins + 1)
 	Y = np.linspace(extent[1][0], extent[1][1], bins + 1)
 	try:
@@ -77,7 +80,7 @@ def ConfidenceRegions2D(x,y,*args,**kwargs):
 	except ValueError:
 		raise ValueError("It looks like at least one of your sample columns have no dynamic range. You could try using the `extent` argument.")
 
-	V = np.array([0.,0.68,0.99])#np.array([0.,0.68,0.95,0.99]) # 1.0 - np.exp(-0.5 * np.arange(0.5, 2.1, 0.5) ** 2) # 
+	V = levels
 	Hflat = H.flatten()
 	inds = np.argsort(Hflat)[::-1]
 	Hflat = Hflat[inds]
@@ -93,7 +96,9 @@ def ConfidenceRegions2D(x,y,*args,**kwargs):
 	X1, Y1 = 0.5 * (X[1:] + X[:-1]), 0.5 * (Y[1:] + Y[:-1])
 	X, Y = X[:-1], Y[:-1]
 
-	ax.contour(X1, Y1, H.T,V[::-1],colors=cmap(1.),linestyles='-')
+	#,colors=cmap(1.)
+	cols = [cmap(1.0) for lvl in levels]
+	ax.contour(X1, Y1, H.T,V[::-1],colors=cols, linestyles='-',label=label)
 	ax.contourf(X1, Y1, H.T,V[::-1],cmap = cmap,alpha=kwargs.pop("alpha",1))
 
 	ax.set_xlim(extent[0])
