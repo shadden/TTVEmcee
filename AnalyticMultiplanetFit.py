@@ -248,8 +248,73 @@ class MultiplanetAnalyticTTVSystem(object):
 		dl1y = mu * 1.5/(j*delta**2) * -bigZ2y
 		#--------------------------------------------		
 		return np.array((j,dzx + dlx, dzy + dly, dz1x + dl1x, dz1y + dl1y))
+	
+	def ContinuousTransitTimes(self,massesAndEccs,periodsAndMeanLongs,Npts=200,exclude=[],epoch = 0.0):
+		excludeF =  ( 'F' in exclude )
+		exclude2S =  ( '2S' in exclude )			
+		mass,ex,ey = np.transpose(massesAndEccs.reshape(-1,3))
+		period,meanLong = np.transpose(periodsAndMeanLongs.reshape(-1,2))
+		tInit = 0.5 * period *(-meanLong +2*ey) / np.pi 
+		continuousIndicies = [ np.linspace(0.,np.max(Nums),Npts) for Nums in self.transitNumbers ]
+			
+		transitTimes = [ (period[i] * continuousIndicies[i] + tInit[i]) for i in range(self.nPlanets) ]
+		TTVs  = [ np.zeros(Npts) for i in range(self.nPlanets) ]
 
-	def TransitTimes(self,massesAndEccs,periodsAndMeanLongs,exclude=[]):
+		for pair,data in self.resonanceData.iteritems():
+			i,j = pair
+			
+			parameters = np.array(( mass[i],mass[j],ex[i],ey[i],ex[j],ey[j] ))
+			periodRatio = period[j] / period[i]
+			
+			ttv1FSdata = self.complexTTVAmplitudes1FS(parameters,periodRatio,data)
+			ttv0Fdata = self.complexTTVAmplitudes0F(parameters,periodRatio,data)
+			
+			# Sum TTV contributions of 1F/1S terms
+			for entry in ttv1FSdata:
+				
+				jRes,Vx,Vy,V1x,V1y = entry
+
+				if excludeF and jRes != data['j'] or np.abs(data['Delta']) > 0.08:
+					continue
+
+				omegaRes = 2.0 * np.pi * ( jRes/period[j] - (jRes-1)/period[i] )
+				angleResInner = omegaRes * transitTimes[i] + jRes * meanLong[j] - (jRes - 1) * meanLong[i]
+				angleResOuter = omegaRes * transitTimes[j] + jRes * meanLong[j] - (jRes - 1) * meanLong[i]
+
+				TTVs[i] += period[i] / np.pi * ( Vx * np.sin(angleResInner) + Vy * np.cos(angleResInner) )
+				TTVs[j] += period[j] / np.pi * ( V1x * np.sin(angleResOuter) + V1y * np.cos(angleResOuter) )
+			
+			# Sum TTV contributions of 0F terms
+			for entry in ttv0Fdata:
+				
+				if excludeF:
+					continue
+				
+				jRes,Vx,V1x = entry
+
+				omegaRes = 2.0 * np.pi * ( jRes/period[j] - (jRes)/period[i] )
+				angleResInner = omegaRes * transitTimes[i] + jRes * meanLong[j] - jRes * meanLong[i]
+				angleResOuter = omegaRes * transitTimes[j] + jRes * meanLong[j] - jRes * meanLong[i]
+
+				TTVs[i] += period[i] / np.pi * ( Vx * np.sin(angleResInner) )
+				TTVs[j] += period[j] / np.pi * ( V1x * np.sin(angleResOuter))
+
+			# Add contribution of 2S term if delta is small
+			if np.abs(data['Delta']) < self.deltaLimit and not exclude2S:
+				jRes,Vx,Vy,V1x,V1y = self.complexTTVAmplitudes2S(parameters,periodRatio,data)
+				omegaRes = 2.0 * np.pi * ( jRes/period[j] - (jRes-2)/period[i] )
+				angleResInner = omegaRes * transitTimes[i] + jRes * meanLong[j] - (jRes - 2) * meanLong[i]
+				angleResOuter = omegaRes * transitTimes[j] + jRes * meanLong[j] - (jRes - 2) * meanLong[i]
+				TTVs[i] += period[i] / np.pi * ( Vx  * np.sin(angleResInner) + Vy  * np.cos(angleResInner) )
+				TTVs[j] += period[j] / np.pi * ( V1x * np.sin(angleResOuter) + V1y * np.cos(angleResOuter) )
+
+				
+		
+		unscaledTimes =  [ epoch +time + dt  for time,dt in zip(transitTimes,TTVs) ]
+		
+		return [ np.vstack((continuousIndicies[i],times)).T for i,times in enumerate(unscaledTimes) ]
+
+	def TransitTimes(self,massesAndEccs,periodsAndMeanLongs,exclude=[],epoch = 0.0):
 		"""
 		Compute transit times for each planet in the multi-planet system as the sum of a linear
 		trend plus the TTVs induced by each partner.
@@ -273,7 +338,7 @@ class MultiplanetAnalyticTTVSystem(object):
 		mass,ex,ey = np.transpose(massesAndEccs.reshape(-1,3))
 		period,meanLong = np.transpose(periodsAndMeanLongs.reshape(-1,2))
 
-		tInit = 0.5 * period *(-meanLong +2*ey) / np.pi #+ 0.5 * period * ( 2. * ey / np.pi )
+		tInit = 0.5 * period *(-meanLong + 2*ey) / np.pi 
 		
 		transitTimes = [ (period[i] * self.transitNumbers[i] + tInit[i]) for i in range(self.nPlanets) ]
 		TTVs  = [ np.zeros(self.transitCounts[i]) for i in range(self.nPlanets) ]
@@ -328,7 +393,7 @@ class MultiplanetAnalyticTTVSystem(object):
 
 				
 		
-		unscaledTimes =  [ time + dt  for time,dt in zip(transitTimes,TTVs) ]
+		unscaledTimes =  [ epoch + time + dt  for time,dt in zip(transitTimes,TTVs) ]
 		
 		return [ np.vstack((self.transitNumbers[i],times)).T for i,times in enumerate(unscaledTimes) ]
 	
@@ -418,7 +483,7 @@ class MultiplanetAnalyticTTVSystem(object):
 			
 
 
-	def parameterTransitTimes(self,params,Only_1S=False,exclude=[]):
+	def parameterTransitTimes(self,params,Only_1S=False,exclude=[],return_transform=False):
 		massesAndEccs = params[:3*self.nPlanets]
 		ey0 = massesAndEccs[2]
 		periodsAndMeanLongs = np.hstack(( np.array( (1.0, 0.0) ),params[3*self.nPlanets:]))
@@ -436,9 +501,15 @@ class MultiplanetAnalyticTTVSystem(object):
 		# Solve for the transform of analytic times that gives the best fit to observed transits
 		tau,t0 = curve_fit(timeTransform, np.hstack(unscaledTimes), self.flatTimes,sigma = self.flatUncertainties)[0]		
 		transform = np.vectorize(lambda x: timeTransform(x,tau,t0))
-
+		
+		if return_transform:
+			return [ np.vstack((self.transitNumbers[i],transform(times))).T for i,times in enumerate(unscaledTimes) ],transform
+			
 		return [ np.vstack((self.transitNumbers[i],transform(times))).T for i,times in enumerate(unscaledTimes) ]
 	
+##########################################################################################
+#	Begin TTV plot	
+##########################################################################################
 	def parameterTTVPlot(self,params,**kwargs):
 		"""
 		Plot the TTVs from a list of different input parameters as well as the observed TTVs and their errorbars.
@@ -451,6 +522,7 @@ class MultiplanetAnalyticTTVSystem(object):
 		exclude = kwargs.get('exclude',[])
 		sparams = params.reshape(-1,self.nPlanets*5-2)
 		axList = []
+		#----------------------- Observed TTVs -----------------------#
 		for i,data in enumerate(zip(self.transitNumbers,self.transitTimes,self.transitUncertainties)):
 			if i==0:
 				axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1) )
@@ -467,6 +539,7 @@ class MultiplanetAnalyticTTVSystem(object):
 		
 		pl.subplots_adjust(hspace=0.0)
 		
+		#----------------------- Analytic TTVs -----------------------#
 		for param in sparams:
 			fmt = kwargs.get('fmt','.')
 			transitNumberAndTime = self.parameterTransitTimes(param,exclude=exclude)
@@ -479,6 +552,65 @@ class MultiplanetAnalyticTTVSystem(object):
 		for ax in axList:
 			yticks = ax.get_yticks()
 			ax.set_yticks(yticks[1:-1])
+##########################################################################################
+#	End TTV plot	
+##########################################################################################
+
+
+##########################################################################################
+#	Begin Continuous TTV Plot	
+##########################################################################################
+	def parameterContinuousPlot(self,params,**kwargs):
+		"""
+		Plot the 1S sinusoid from a list of different input parameters as well as the observed TTVs and their errorbars.
+		Parameters
+		----------
+		params : array
+		 List of parameters to analytic model for plotting.  Either an N x (5*nPlanets-2)  2-dimensional array
+		or a single set of (3*nPlanets-2) paramters.
+		"""
+		axList = []
+		exclude = kwargs.get('exclude',[])	
+		Npts = kwargs.get('Npts',200)
+		#----------------------- Analytic TTVs -----------------------#
+
+		mass_ecc = params[:self.nPlanets * 3]
+		pAndL = self.bestFitUnscaledPeriodAndLongitude(mass_ecc)
+		continuousTimes = self.ContinuousTransitTimes(mass_ecc,pAndL ,epoch=np.min(self.flatTimes),exclude=exclude,Npts=Npts )
+		aTimes = self.TransitTimes(mass_ecc,pAndL ,epoch=np.min(self.flatTimes) )
+
+		#----------------------- Observed TTVs -----------------------#
+		for i,data in enumerate(zip(self.transitNumbers,self.transitTimes,self.transitUncertainties)):
+			if i==0:
+				axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1) )
+			else:
+				axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1,sharex=axList[0]) )
+			if i != self.nPlanets-1:
+					pl.setp( axList[i].get_xticklabels(), visible=False )
+
+			trNums,trTimes,trErrs = data 
+			#pl.subplot(self.nPlanets*100 + 10 + i +1)
+			
+			ttv = linefit_resids(trNums,trTimes,trErrs)
+			ttv = trTimes - trNums * self.periodEstimates[i] - self.tInitEstimates[i]
+			axList[i].errorbar(trTimes,ttv,yerr=trErrs,fmt='kx',mew=1.3)
+			continuousTTV=continuousTimes[i][:,1] - continuousTimes[i][:,0] * self.periodEstimates[i] - self.tInitEstimates[i]
+			axList[i].plot(continuousTimes[i][:,1],continuousTTV,'k-')
+			aTTV = aTimes[i][:,1] - aTimes[i][:,0] * self.periodEstimates[i] - self.tInitEstimates[i]
+			axList[i].plot(aTimes[i][:,1],aTTV,linestyle='',marker='o',mfc='w',mec='r',mew=2,zorder=1)
+			
+			maxTTV = np.max( np.abs(ttv) )
+			axList[i].set_ylim( -1.3*maxTTV, 1.3*maxTTV )
+			
+			locs,labls = yticks()
+			locs = map(lambda x: int(round(24*60*x))/(24.*60.),locs[1:-1])
+			yticks( locs , 24.*60.*np.array(locs) ) 
+		pl.subplots_adjust(hspace=0.0)
+			
+		return(axList)
+##########################################################################################
+#	End Continous TTV Plot	
+##########################################################################################
 	
 	
 	
@@ -563,7 +695,7 @@ class MultiplanetAnalyticTTVSystem(object):
 		
 		return leastsq(objectivefn, params0,full_output=1)
 
-	def bestFitPeriodAndLongitude(self,massAndEcc):
+	def bestFitPeriodAndLongitude(self,massAndEcc,return_transform=False):
 		""" 
 		Find the best set of average periods and initial mean longitudes for a fixed set of 
 		planet masses and eccentricities.
@@ -593,8 +725,50 @@ class MultiplanetAnalyticTTVSystem(object):
 		guess = np.vstack(( self.periodEstimates[1:]/self.periodEstimates[0] , np.zeros(self.nPlanets - 1) )).T.reshape(-1)
 		
 		pAndLbest =  leastsq(objectivefn, guess ,full_output=1)[0]
-		
+
+		if return_transform:
+			pars = np.hstack((massAndEcc.reshape(-1),pAndLbest))
+			transform=self.parameterTransitTimes(pars,return_transform = True)[-1]
+			return pars,transform
+			
 		return np.hstack((massAndEcc.reshape(-1),pAndLbest))
+	
+	def bestFitUnscaledPeriodAndLongitude(self,pars):
+		""" 
+		Find the best set of average periods and initial mean longitudes for a fixed set of 
+		planet masses and eccentricities.
+	
+		Parameters
+		----------
+		massAndEcc : nPlanets x 3 array
+			The mass and free eccentricity vectors of each planet under consideration
+		"""
+		parlen =len(pars.reshape(-1))
+		massAndEcc = pars[:3*self.nPlanets]
+		target_data = np.array([])
+		errors = np.array([])
+		
+		for i in range(self.nPlanets):
+			target_data = np.append(target_data,self.transitTimes[i])
+			errors = np.append(errors,self.transitUncertainties[i])
+	
+		epoch = np.min(self.flatTimes) 
+		def objectivefn(x):
+			transitNumberAndTime =  self.TransitTimes(massAndEcc,x, epoch=epoch )
+			answer = np.array([],dtype=float)
+			for t in transitNumberAndTime:
+				answer = np.append( answer,np.array(t[:,1]) )
+		
+			return (answer - target_data)/errors
+		
+		pGuess = self.periodEstimates
+		
+		lambdaGuess = -2*np.pi*(self.tInitEstimates - epoch) / pGuess
+		
+		guess = np.vstack(( pGuess, lambdaGuess )).T.reshape(-1)
+		bestSoln =  leastsq(objectivefn, guess ,full_output=1)[0]
+
+		return bestSoln
 
 ###############################################################################################################################
 	
@@ -651,41 +825,18 @@ class MultiplanetAnalyticTTVSystem(object):
 if __name__=="__main__":
 	with open('planets.txt') as fi:
 		plfiles = [line.strip() for line in fi.readlines()]
-	
 	noisyData= [ np.loadtxt(planet) for planet in plfiles ]
+	bestpars= loadtxt('bestpars.txt')
+	
 	analyticFit = MultiplanetAnalyticTTVSystem(noisyData)
- 
- 	try:
- 		pars = loadtxt("bestpars.txt")
- 		mAndE = pars[:3*analyticFit.nPlanets].reshape(-1,3)
- 		R = np.array([[0,1],[-1,0]])
- 		mAndE[:,(1,2)] = np.array( [np.dot(R,v) for v in mAndE[:,(1,2)] ])
- 		newpars = analyticFit.bestFitPeriodAndLongitude(mAndE)
- 		print "Old X^2: %.1f \t New X^2 %.1f \n"%tuple(map(analyticFit.parameterFitness,(pars,newpars)))
-	except:
- 		print "No parameter file `bestpars.txt' found."
-
-	target_data = np.array([])
-	errors = np.array([])
-	for i in range(analyticFit.nPlanets):
-		target_data = np.append(target_data,analyticFit.transitTimes[i])
-		errors = np.append(errors,analyticFit.transitUncertainties[i])
-		
-	def objectivefn(x):
-		transitNumberAndTime = analyticFit.TransitTimes( mAndE, x[:-1] )
-		answer = np.array([],dtype=float)
-		for t in transitNumberAndTime:
-			answer = np.append( answer,np.array(t[:,1]+x[-1]) )
-			#
-		return (answer - target_data)/errors	 
+	mAnde,pAndl = analyticFit.TTVFastCoordTransform(pars)
 	
-	tGlobal0=np.min(analyticFit.tInitEstimates)
-	p0 = analyticFit.periodEstimates
-	L0 =  - 2*pi * (analyticFit.tInitEstimates - tGlobal0) / p0
-	x0 = np.append(np.vstack((p0,L0)).T.reshape(-1),tGlobal0)
-	
-	print objectivefn(x0)
+	pAndLbest = analyticFit.bestFitPeriodAndLongitude(mAnde)
+	analyticFit.bestFitUnscaledPeriodAndLongitude(mAnde)
+	axList=analyticFit.parameterContinuousPlot(mAnde,exclude=['F','2S'],Npts=300)
 
+	show()
+	
 #  analyticFit.parameterTTV1SResidualsPlot(pAndLbest,label='Full Analytic Model',fmt='bs-')
 #  axList = analyticFit.parameterTTV1SResidualsPlot(pAndLbest,exclude=['F'],showObs=False,label='No Fast Terms',fmt='rs-')
 #  axList[-1].legend(loc=3)
