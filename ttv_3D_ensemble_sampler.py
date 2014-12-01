@@ -21,7 +21,14 @@ from fitnessNEW import *
 import emcee
 import matplotlib.pyplot as pl
 from argparse import ArgumentParser
+import inclinations
+from scipy.optimize import minimize
 
+def mod_angvars(p,nplanets):
+	
+	p[ tuple([ 4+i*7 for i in range(nplanets)]), ] = mod( p[ tuple([ 4+i*7 for i in range(nplanets)]), ] + pi ,2*pi ) - pi
+	p[ tuple([ 5+i*7 for i in range(nplanets)]), ] = mod( p[ tuple([ 5+i*7 for i in range(nplanets)]), ] + pi ,2*pi )	- pi
+	return p
 
 #------------------------------------------
 #  MAIN
@@ -29,12 +36,16 @@ from argparse import ArgumentParser
 if __name__=="__main__":
 
 	parser = ArgumentParser(description='run an ensemble MCMC analysis of a pair of TTVs')
+
 	parser.add_argument('--restart', default=False, action='store_true', help='continue a previously-existing run')
 	parser.add_argument('--erase', default=False, action='store_true', help='Start walkers from old files but overwrite them')
+
 	parser.add_argument('-n','--nensembles', metavar='N', type=int, default=100, help='number of ensembles to accumulate')
-	parser.add_argument('--nwalkers', metavar='N', type=int, default=100, help='number of walkers to use')
-	parser.add_argument('--nthin', metavar='N', type=int, default=10, help='number of setps to take between each saved ensemble state')
+	parser.add_argument('--nwalkers', metavar='N', type=int, default=100, help='number of walkers to use')	
+	parser.add_argument('--nthin', metavar='N', type=int, default=10, help='number of steps to take between each saved ensemble state')
+	parser.add_argument('--nburn', metavar='N', type=int, default=100, help='Number of burn-in steps')
 	parser.add_argument('--nthreads', metavar='N', type=int, default=multi.cpu_count(), help='number of concurrent threads to use')
+
 	parser.add_argument('-P','--parfile', metavar='FILE', default=None, help='Text file containing parameter values to initialize walker around.')
 	parser.add_argument('--noloop', default=False, action='store_true', help='Run set-up but do not excecute the MCMC main loop')
 	parser.add_argument('--input','-I',metavar='FILE',default='planets.txt',help='File that lists the names of the files containing input transits')
@@ -51,8 +62,6 @@ if __name__=="__main__":
 	nthreads=args.nthreads
 	nburn = args.nburn
 	infile = args.input
-	nbody = (not args.analytic)
-	first_order = args.first_order
 	priors = args.priors
 
 	#----------------------------------------------------------------------------------
@@ -72,9 +81,8 @@ if __name__=="__main__":
 		for data in input_data:
 			data[:,0] -= 1
 
-	#----------------------------------------------------------------------------------
-	# Get input TTV data and remove outliers
-	#----------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------
+# Get input TTV data and remove outliers
 	trim = None
 	if trim:
 		input_dataTR = TrimData(input_data,tol=3.)
@@ -96,31 +104,58 @@ if __name__=="__main__":
 	else:
 		pars0 = append(ones(nplanets) * 6.e-6 , zeros(2*nplanets) )
 #----------------------------------------------------------------------------------
-	
-	#----------------------------------------------------------------------		
-	#	Compute log-likelihoods from N-body integration
-	#----------------------------------------------------------------------
+
+
+#--------------------------------------------
+# Set up a TTVFit object for likelihood computations
 	sys.path.insert(0,TTVFAST_PATH)
 	import PyTTV_3D as ttv
 	
 	ndim = 7*nplanets 
 	
 	nbody_fit = ttv.TTVFit(input_data)
+#--------------------------------------------
 
-	# Likelihood function
-	#--------------------------------------------
+#--------------------------------------------
+# Impact parameter information
+	with open("inclination_data.txt") as fi:
+		lines = [l.split() for l in fi.readlines()]
+	mstar,sigma_mstar = map(float,lines[0])
+	rstar,sigma_rstar = map(float,lines[1])
+	b,sigma_b = array([map(float,l[1:]) for l in lines[2:] ]).T
+	
+	b_Obs = ttv.ImpactParameterObservations([rstar,sigma_rstar],[mstar,sigma_mstar], vstack((b,sigma_b)).T)
+#--------------------------------------------
+	def logpInc(x):
+		# Masses must be positive
+		xs = x.reshape(-1,7)
+		inclinations = xs[:,4]
+		periods = xs[:,1]
+		return b_Obs.ImpactParametersPriors(inclinations, periods) / (10.)
+
+#--------------------------------------------
+# Likelihood function
+
 	def fit(x):
+
 		# Masses must be positive
 		xs = x.reshape(-1,7)
 		masses = xs[:,0]
 		bad_masses = any(masses < 0.0)
 		if bad_masses:
 			return -inf
+
 		# Eccentricities must be smaller than 1
-		exs,eys = xs[:,(2,3)]
+		exs,eys = xs[:,(2,3)].T
 		bad_eccs = any(exs**2 +eys**2 >= 0.9**2)
 		if bad_eccs:
 			return -inf
+		# Angles should be between -pi and pi
+		angs = xs[:,(4,5)].reshape(-1)
+		bad_angs = any(abs(angs) > pi )
+		if bad_angs:
+			return -inf
+		
 		if priors=='g':
 			logp = -1.0*sum( 0.5 * (exs**2 + eys**2 ) / 0.017**2 )
 		elif priors =='l':
@@ -128,9 +163,8 @@ if __name__=="__main__":
 		else:
 			logp = 0.0
 
-		return nbody_fit.ParameterFitness(x) + logp
-	
-	def 				
+		return nbody_fit.ParameterFitness(x) + logp	+ logpInc(x)			
+#--------------------------------------------
 
 #-----------------------------------------------------------------
 #	Set up sampler and walkers
@@ -156,18 +190,47 @@ if __name__=="__main__":
 	elif args.parfile:
 		old_best = pars0
 		old_best_lnlike = fit(old_best)
+	
 	else:
 		# Initialize new walkers
-		if nbody:
-			p=initialize_walkers(nwalkers,pars0)
-		else:
-			print "Looking for a good starting point..."
-			p=initialize_walkers(nwalkers)
-
-		for x in p.reshape(-1,ndim):
-			assert fit(x) > -inf, "Bad IC generated!"
+		ic = nbody_fit.coplanar_initial_conditions(1.e-5*ones(nplanets),random.normal(0,0.02,nplanets),random.normal(0,0.02,nplanets))
+		fitdata= nbody_fit.LeastSquareParametersFit( ic[:,(0,1,2,3,6)] )
+		best,cov = fitdata[:2]
 		
-	
+		print "Initial (coplanar) Fitness: %.2f"%nbody_fit.ParameterFitness(best)
+
+		# 3D L-M Fit
+		best3d = best.reshape(-1,5)
+		i0,sigma_i=b_Obs.ImpactParametersToInclinations(nbody_fit.Observations.PeriodEstimates)
+		best3d = hstack(( best3d[:,:4], i0.reshape(-1,1) , random.uniform(-0.005,0.005,(nplanets,1)), best3d[:,-1].reshape(-1,1) ))
+		best3d = best3d.reshape(-1)
+		fitdata = nbody_fit.LeastSquareParametersFit( best3d )
+		best,cov = fitdata[:2]
+		best = mod_angvars(best,nplanets)
+		
+		# 3-D nelder-mead fit using full likelihood
+		def fun(x):
+			-1*fit(x)
+		outdat = minimize(fun,best,method='nelder-mead')
+		best = outdat['x']
+		best = mod_angvars(best,nplanets)
+		fitdata = nbody_fit.LeastSquareParametersFit( best , [cos(i0), diagonal(sigma_i) ])
+		best,cov = fitdata[:2]
+		best = mod_angvars(best,nplanets)
+		
+		print "3D Fitness: %.2f"%fit(best)
+		
+		shrink = 10.
+		p = zeros((nwalkers,ndim))
+		for i in range(nwalkers):
+			par = random.multivariate_normal(best,cov/(shrink*shrink))
+			par = mod_angvars(par,nplanets)
+			while fit(par) == -inf:
+				par = random.multivariate_normal(best,cov/(shrink*shrink))
+				par = mod_angvars(par,nplanets)
+			p[i] = par
+			
+				
 	# initialize sampler
 	sampler = emcee.EnsembleSampler(nwalkers,ndim,fit,threads=nthreads)
 
@@ -182,7 +245,6 @@ if __name__=="__main__":
 		with gzip.open('chain.lnlike.dat.gz', 'w') as out:
 				out.write("# Likelihoods\n")
 
-	acorstring = ('\t'.join(["M%d\tEX%d\tEY%d"%(d,d,d) for d in range(nplanets)]))+'\t'+('\t'.join(["P%d\tdL%d"%(d,d) for d in range(1,nplanets)]))
 #------------------------------------------------
 # --- Burn-in Phase and Minimum Search --- #
 #------------------------------------------------
@@ -191,19 +253,20 @@ if __name__=="__main__":
 	# If starting MCMC for first time, generate some samples to find a starting place from
 		print "Starting burn-in..."
 		for p,lnlike,blobs in sampler.sample(p, iterations=nburn, storechain = True):
-			pass	
+			pass
 		print "Burn-in complete, starting main loop"
 
 		old_best = sampler.flatchain[argmax(sampler.flatlnprobability)]
 		old_best_lnlike = fit(old_best)
 	
-	if (not restart or args.erase) and nbody and not args.noloop:
+	if (not restart or args.erase) and not args.noloop and False:
+	#
 	# If starting N-body MCMC for the first time or if the old chains are going to be erased,
 	# try to use Levenberg-Marquardt to find the best parameters to start new walkers around
 	#
-		shrink = 20.
+		shrink = 8.
 		print "Starting L-M least-squares from likelihood: %.1f"%old_best_lnlike
-		out=nbody_fit.CoplanarParametersTTVFit(old_best)
+		out=nbody_fit.LeastSquareParametersFit(old_best)
 		bestfit,cov = out[:2]
 
 		if fit(bestfit) >= old_best_lnlike:
@@ -227,8 +290,8 @@ if __name__=="__main__":
 			break
 		# take 'nthin' samples.
 		for p,lnlike,blobs in sampler.sample(p,iterations=nthin, storechain = False):
-			pass	
-
+			pass
+		
 		print '(%d/%d) acceptance fraction = %.3f'%( k+1, nloops, mean(sampler.acceptance_fraction) )
 		sys.stdout.flush()
 
