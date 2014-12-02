@@ -27,9 +27,13 @@ from scipy.optimize import minimize
 def mod_angvars(p,nplanets):
 	
 	p[ tuple([ 4+i*7 for i in range(nplanets)]), ] = mod( p[ tuple([ 4+i*7 for i in range(nplanets)]), ] + pi ,2*pi ) - pi
-	p[ tuple([ 5+i*7 for i in range(nplanets)]), ] = mod( p[ tuple([ 5+i*7 for i in range(nplanets)]), ] + pi ,2*pi )	- pi
+	p[ tuple([ 5+i*7 for i in range(nplanets)]), ] = mod( p[ tuple([ 5+i*7 for i in range(nplanets)]), ] + pi ,2*pi ) - pi
 	return p
-
+def convert2rel_node(par,nplanets):
+	node_dex = tuple([5+i*7 for i in range(1,nplanets)])
+	par[node_dex,] -= par[5]
+	par[node_dex,] = mod( par[node_dex,] + pi, 2*pi ) - pi
+	return append(par[:5],par[6:])
 #------------------------------------------
 #  MAIN
 #------------------------------------------
@@ -51,6 +55,7 @@ if __name__=="__main__":
 	parser.add_argument('--input','-I',metavar='FILE',default='planets.txt',help='File that lists the names of the files containing input transits')
 	parser.add_argument('--priors',metavar='[g | l]',default=None,help='Use eccentricity priors. g: Gaussian , l: log-uniform')
 
+	parser.add_argument('--relative_coords',default=False,action='store_true',help='Reduce number of parameter dimensions by fixing ascending node of inner planet to 0')
 	#----------------------------------------------------------------------------------
 	# command-line arguments:
 
@@ -63,7 +68,8 @@ if __name__=="__main__":
 	nburn = args.nburn
 	infile = args.input
 	priors = args.priors
-
+	
+	rel_nodes = args.relative_coords
 	#----------------------------------------------------------------------------------
 
 	
@@ -111,7 +117,10 @@ if __name__=="__main__":
 	sys.path.insert(0,TTVFAST_PATH)
 	import PyTTV_3D as ttv
 	
-	ndim = 7*nplanets 
+	if rel_nodes:
+		ndim = 7*nplanets - 1
+	else:
+		ndim = 7*nplanets 
 	
 	nbody_fit = ttv.TTVFit(input_data)
 #--------------------------------------------
@@ -127,8 +136,10 @@ if __name__=="__main__":
 	b_Obs = ttv.ImpactParameterObservations([rstar,sigma_rstar],[mstar,sigma_mstar], vstack((b,sigma_b)).T)
 #--------------------------------------------
 	def logpInc(x):
-		# Masses must be positive
-		xs = x.reshape(-1,7)
+		if rel_nodes:
+			xs = insert(x,5,0.).reshape(-1,7)
+		else:
+			xs = x.reshape(-1,7)
 		inclinations = xs[:,4]
 		periods = xs[:,1]
 		return b_Obs.ImpactParametersPriors(inclinations, periods) 
@@ -137,9 +148,12 @@ if __name__=="__main__":
 # Likelihood function
 
 	def fit(x):
-
-		# Masses must be positive
-		xs = x.reshape(-1,7)
+		if rel_nodes:
+			xs = insert(x,5,0.).reshape(-1,7)
+		else:
+			xs = x.reshape(-1,7)
+	
+		# Masses must be positive			
 		masses = xs[:,0]
 		bad_masses = any(masses < 0.0)
 		if bad_masses:
@@ -167,7 +181,7 @@ if __name__=="__main__":
 #--------------------------------------------
 
 #-----------------------------------------------------------------
-#	Set up sampler and walkers
+#	# --- Initialize Walkers  --- #
 #-----------------------------------------------------------------	
 	means=[]
 	lnlike = None
@@ -209,27 +223,35 @@ if __name__=="__main__":
 		fitdata = nbody_fit.LeastSquareParametersFit( best3d )
 		best,cov = fitdata[:2]
 		best = mod_angvars(best,nplanets)
-		print "Initial 3D  Fitness: %.2f"%fit(best)
+
+		if rel_nodes:
+			print "Initial 3D Fitness: %.2f"%fit(convert2rel_node(best,nplanets))
+		else:
+			print "Initial 3D Fitness: %.2f"%fit(best)
 	
-		# 3-D nelder-mead fit using full likelihood
-		def fun(x):
-			-1*fit(x)
-		outdat = minimize(fun,best,method='nelder-mead')
-		best = outdat['x']
-		#assert outdat['success'], "Nelder-Mead method failed to find a minimum!"
-		best = mod_angvars(best,nplanets)
-		print "Nelder-Mead best fit: %.2f"%fit(best)
+# 		# 3-D nelder-mead fit using full likelihood
+# 		def fun(x):
+# 			-1*fit(x)
+# 		outdat = minimize(fun,best,method='nelder-mead')
+# 		best = outdat['x']
+# 		#assert outdat['success'], "Nelder-Mead method failed to find a minimum!"
+# 		best = mod_angvars(best,nplanets)
+# 		print "Nelder-Mead best fit: %.2f"%fit(best)
 
 		fitdata = nbody_fit.LeastSquareParametersFit( best , [cos(i0), diagonal(sigma_i) ])
 		best,cov = fitdata[:2]
 		best = mod_angvars(best,nplanets)
 		
-		print "3D Fitness: %.2f"%fit(best)
+		if rel_nodes:
+			print "3D Fitness: %.2f"%fit(convert2rel_node(best,nplanets))
+		else:
+			print "3D Fitness: %.2f"%fit(best)
+
 		for par in best.reshape(nplanets,-1):
 			print "\t",par	
-		
+	
 		shrink = 10.
-		p = zeros((nwalkers,ndim))
+		p = zeros(( nwalkers,ndim ))
 		for i in range(nwalkers):
 			par = random.multivariate_normal(best,cov/(shrink*shrink))
 			par = mod_angvars(par,nplanets)
@@ -237,7 +259,9 @@ if __name__=="__main__":
 			for j in range(nplanets):
 				if random.choice([True,False]):
 					par[j*7 + 4] = pi - par[j*7 + 4]
-	
+			if rel_nodes:
+				par = convert2rel_node(par,nplanets)
+
 			#---- If initial parameter vector draw is bad, draw until a good vector is initialized ----#
 			while fit(par) == -inf:
 				par = random.multivariate_normal(best,cov/(shrink*shrink))
@@ -246,8 +270,10 @@ if __name__=="__main__":
 				for j in range(nplanets):
 					if random.choice([True,False]):
 						par[j*7 + 4] = pi - par[j*7 + 4]
-			p[i] = par
-			
+				if rel_nodes:
+					par = convert2rel_node(par,nplanets)
+
+			p[i] = par		
 				
 	# initialize sampler
 	sampler = emcee.EnsembleSampler(nwalkers,ndim,fit,threads=nthreads)
@@ -264,7 +290,7 @@ if __name__=="__main__":
 				out.write("# Likelihoods\n")
 
 #------------------------------------------------
-# --- Burn-in Phase and Minimum Search --- #
+# --- Burn-in Phase --- #
 #------------------------------------------------
 	
 	if not restart and not args.noloop and not args.parfile:
@@ -277,29 +303,9 @@ if __name__=="__main__":
 		old_best = sampler.flatchain[argmax(sampler.flatlnprobability)]
 		old_best_lnlike = fit(old_best)
 	
-	if (not restart or args.erase) and not args.noloop and False:
-	#
-	# If starting N-body MCMC for the first time or if the old chains are going to be erased,
-	# try to use Levenberg-Marquardt to find the best parameters to start new walkers around
-	#
-		shrink = 8.
-		print "Starting L-M least-squares from likelihood: %.1f"%old_best_lnlike
-		out=nbody_fit.LeastSquareParametersFit(old_best)
-		bestfit,cov = out[:2]
-
-		if fit(bestfit) >= old_best_lnlike:
-			print "Max likelihood via L-M least-squares: %.1f"%fit(bestfit)
-			p = random.multivariate_normal(bestfit,cov/(shrink*shrink),size=nwalkers)
-		else:
-			print "L-M least-square couldn't find a minimum to initialize around... Returned:"
-			print fit(bestfit)
-			print "Initializing from the best walkers so far..."
-			if not restart:
-				p = sampler.flatchain[argsort(-sampler.flatlnprobability)[:nwalkers]] 
-		
 	sampler.reset()
 #------------------------------------------------
-# MAIN LOOP
+# --- Main Loop  --- #
 #------------------------------------------------
 		
 	nloops = int(ceil(nensembles/nthin))
