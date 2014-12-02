@@ -131,7 +131,7 @@ if __name__=="__main__":
 		xs = x.reshape(-1,7)
 		inclinations = xs[:,4]
 		periods = xs[:,1]
-		return b_Obs.ImpactParametersPriors(inclinations, periods) / (10.)
+		return b_Obs.ImpactParametersPriors(inclinations, periods) 
 
 #--------------------------------------------
 # Likelihood function
