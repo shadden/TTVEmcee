@@ -131,7 +131,7 @@ if __name__=="__main__":
 		xs = x.reshape(-1,7)
 		inclinations = xs[:,4]
 		periods = xs[:,1]
-		return b_Obs.ImpactParametersPriors(inclinations, periods) / (10.)
+		return b_Obs.ImpactParametersPriors(inclinations, periods) 
 
 #--------------------------------------------
 # Likelihood function
@@ -193,7 +193,7 @@ if __name__=="__main__":
 	
 	else:
 		# Initialize new walkers
-		ic = nbody_fit.coplanar_initial_conditions(1.e-5*ones(nplanets),random.normal(0,0.02,nplanets),random.normal(0,0.02,nplanets))
+		ic = nbody_fit.coplanar_initial_conditions(.5e-5*ones(nplanets),random.normal(0,0.02,nplanets),random.normal(0,0.02,nplanets))
 		fitdata= nbody_fit.LeastSquareParametersFit( ic[:,(0,1,2,3,6)] )
 		best,cov = fitdata[:2]
 		
@@ -204,21 +204,29 @@ if __name__=="__main__":
 		i0,sigma_i=b_Obs.ImpactParametersToInclinations(nbody_fit.Observations.PeriodEstimates)
 		best3d = hstack(( best3d[:,:4], i0.reshape(-1,1) , random.uniform(-0.005,0.005,(nplanets,1)), best3d[:,-1].reshape(-1,1) ))
 		best3d = best3d.reshape(-1)
+		best3d[tuple([0+7*i for i in range(nplanets)]),] = abs(best3d[tuple([0+7*i for i in range(nplanets)]),])
+
 		fitdata = nbody_fit.LeastSquareParametersFit( best3d )
 		best,cov = fitdata[:2]
 		best = mod_angvars(best,nplanets)
-		
+		print "Initial 3D  Fitness: %.2f"%fit(best)
+	
 		# 3-D nelder-mead fit using full likelihood
 		def fun(x):
 			-1*fit(x)
 		outdat = minimize(fun,best,method='nelder-mead')
 		best = outdat['x']
+		#assert outdat['success'], "Nelder-Mead method failed to find a minimum!"
 		best = mod_angvars(best,nplanets)
+		print "Nelder-Mead best fit: %.2f"%fit(best)
+
 		fitdata = nbody_fit.LeastSquareParametersFit( best , [cos(i0), diagonal(sigma_i) ])
 		best,cov = fitdata[:2]
 		best = mod_angvars(best,nplanets)
 		
 		print "3D Fitness: %.2f"%fit(best)
+		for par in best.reshape(nplanets,-1):
+			print "\t",par	
 		
 		shrink = 10.
 		p = zeros((nwalkers,ndim))
