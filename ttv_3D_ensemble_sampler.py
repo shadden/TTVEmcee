@@ -233,9 +233,19 @@ if __name__=="__main__":
 		for i in range(nwalkers):
 			par = random.multivariate_normal(best,cov/(shrink*shrink))
 			par = mod_angvars(par,nplanets)
+			# randomly flip I's to alternate value that gives the same impact parameter
+			for j in range(nplanets):
+				if random.choice([True,False]):
+					par[j*7 + 4] = pi - par[j*7 + 4]
+	
+			#---- If initial parameter vector draw is bad, draw until a good vector is initialized ----#
 			while fit(par) == -inf:
 				par = random.multivariate_normal(best,cov/(shrink*shrink))
 				par = mod_angvars(par,nplanets)
+				# randomly flip I's to alternate value that gives the same impact parameter
+				for j in range(nplanets):
+					if random.choice([True,False]):
+						par[j*7 + 4] = pi - par[j*7 + 4]
 			p[i] = par
 			
 				
