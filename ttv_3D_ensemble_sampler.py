@@ -106,9 +106,6 @@ if __name__=="__main__":
 			print "Parameter file %s not found!"%args.parfile
 			print "Aborting..."
 			sys.exit()
-
-	else:
-		pars0 = append(ones(nplanets) * 6.e-6 , zeros(2*nplanets) )
 #----------------------------------------------------------------------------------
 
 
@@ -207,7 +204,7 @@ if __name__=="__main__":
 	
 	else:
 		# Initialize new walkers
-		ic = nbody_fit.coplanar_initial_conditions(.5e-5*ones(nplanets),random.normal(0,0.02,nplanets),random.normal(0,0.02,nplanets))
+		ic = nbody_fit.coplanar_initial_conditions(.3e-5*ones(nplanets),random.normal(0,0.01,nplanets),random.normal(0,0.01,nplanets))
 		fitdata= nbody_fit.LeastSquareParametersFit( ic[:,(0,1,2,3,6)] )
 		best,cov = fitdata[:2]
 		
