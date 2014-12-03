@@ -223,59 +223,40 @@ if __name__=="__main__":
 		best,cov = fitdata[:2]
 		
 		print "Initial (coplanar) Fitness: %.2f"%nbody_fit.ParameterFitness(best)
+		if not coplanar:
+			# 3D L-M Fit
+			best3d = best.reshape(-1,5)
+			i0,sigma_i=b_Obs.ImpactParametersToInclinations(nbody_fit.Observations.PeriodEstimates)
+			best3d = hstack(( best3d[:,:4], i0.reshape(-1,1) , random.uniform(-0.005,0.005,(nplanets,1)), best3d[:,-1].reshape(-1,1) ))
+			best3d = best3d.reshape(-1)
+			best3d[tuple([0+7*i for i in range(nplanets)]),] = abs(best3d[tuple([0+7*i for i in range(nplanets)]),])
 
-		# 3D L-M Fit
-		best3d = best.reshape(-1,5)
-		i0,sigma_i=b_Obs.ImpactParametersToInclinations(nbody_fit.Observations.PeriodEstimates)
-		best3d = hstack(( best3d[:,:4], i0.reshape(-1,1) , random.uniform(-0.005,0.005,(nplanets,1)), best3d[:,-1].reshape(-1,1) ))
-		best3d = best3d.reshape(-1)
-		best3d[tuple([0+7*i for i in range(nplanets)]),] = abs(best3d[tuple([0+7*i for i in range(nplanets)]),])
+			fitdata = nbody_fit.LeastSquareParametersFit( best3d )
+			best,cov = fitdata[:2]
+			best = mod_angvars(best,nplanets)
 
-		fitdata = nbody_fit.LeastSquareParametersFit( best3d )
-		best,cov = fitdata[:2]
-		best = mod_angvars(best,nplanets)
-
-		if rel_nodes:
-			print "Initial 3D Fitness: %.2f"%fit(convert2rel_node(best,nplanets))
-		else:
-			print "Initial 3D Fitness: %.2f"%fit(best)
+			if rel_nodes:
+				print "Initial 3D Fitness: %.2f"%fit(convert2rel_node(best,nplanets))
+			else:
+				print "Initial 3D Fitness: %.2f"%fit(best)
 	
-# 		# 3-D nelder-mead fit using full likelihood
-# 		def fun(x):
-# 			-1*fit(x)
-# 		outdat = minimize(fun,best,method='nelder-mead')
-# 		best = outdat['x']
-# 		#assert outdat['success'], "Nelder-Mead method failed to find a minimum!"
-# 		best = mod_angvars(best,nplanets)
-# 		print "Nelder-Mead best fit: %.2f"%fit(best)
-
-		fitdata = nbody_fit.LeastSquareParametersFit( best , [cos(i0), diagonal(sigma_i) ])
-		best,cov = fitdata[:2]
-		best = mod_angvars(best,nplanets)
+			fitdata = nbody_fit.LeastSquareParametersFit( best , [cos(i0), diagonal(sigma_i) ])
+			best,cov = fitdata[:2]
+			best = mod_angvars(best,nplanets)
 		
-		if rel_nodes:
-			print "3D Fitness: %.2f"%fit(convert2rel_node(best,nplanets))
-		else:
-			print "3D Fitness: %.2f"%fit(best)
+			if rel_nodes:
+				print "3D Fitness: %.2f"%fit(convert2rel_node(best,nplanets))
+			else:
+				print "3D Fitness: %.2f"%fit(best)
 
-		for par in best.reshape(nplanets,-1):
-			print "\t",par	
+			for par in best.reshape(nplanets,-1):
+				print "\t",par	
 	
 		shrink = 10.
 		p = zeros(( nwalkers,ndim ))
 		for i in range(nwalkers):
 			par = random.multivariate_normal(best,cov/(shrink*shrink))
-			par = mod_angvars(par,nplanets)
-			# randomly flip I's to alternate value that gives the same impact parameter
-			for j in range(nplanets):
-				if random.choice([True,False]):
-					par[j*7 + 4] = pi - par[j*7 + 4]
-			if rel_nodes:
-				par = convert2rel_node(par,nplanets)
-
-			#---- If initial parameter vector draw is bad, draw until a good vector is initialized ----#
-			while fit(par) == -inf:
-				par = random.multivariate_normal(best,cov/(shrink*shrink))
+			if not coplanar:
 				par = mod_angvars(par,nplanets)
 				# randomly flip I's to alternate value that gives the same impact parameter
 				for j in range(nplanets):
@@ -283,6 +264,18 @@ if __name__=="__main__":
 						par[j*7 + 4] = pi - par[j*7 + 4]
 				if rel_nodes:
 					par = convert2rel_node(par,nplanets)
+
+			#---- If initial parameter vector draw is bad, draw until a good vector is initialized ----#
+			while fit(par) == -inf:
+				par = random.multivariate_normal(best,cov/(shrink*shrink))
+				if not coplanar:
+					par = mod_angvars(par,nplanets)
+					# randomly flip I's to alternate value that gives the same impact parameter
+					for j in range(nplanets):
+						if random.choice([True,False]):
+							par[j*7 + 4] = pi - par[j*7 + 4]
+					if rel_nodes:
+						par = convert2rel_node(par,nplanets)
 
 			p[i] = par		
 				
