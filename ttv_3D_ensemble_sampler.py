@@ -190,8 +190,14 @@ if __name__=="__main__":
 	if restart:
 		# Read in old walkers
 		print "Loading chain from file..."
-		p = loadtxt('chain.dat.gz')[-nwalkers:,:]
-		lnlike = loadtxt('chain.lnlike.dat.gz')[-nwalkers:]
+		lnlike = loadtxt('chain.lnlike.dat.gz')
+		if args.erase:
+			# take the best old walker positions
+			lnlike,nlnlike = sort(lnlike)[-nwalkers:] ,argsort(lnlike)[-nwalkers:]
+			p = loadtxt('chain.dat.gz')[nlnlike,:]
+		else:
+			lnlike = lnlike[-nwalkers]
+			p = loadtxt('chain.dat.gz')[-nwalkers,:]
 		print p.shape,lnlike.shape
 		old_best= p[argmax(lnlike)]
 		old_best_lnlike = fit(old_best)
