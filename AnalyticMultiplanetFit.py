@@ -562,7 +562,7 @@ class MultiplanetAnalyticTTVSystem(object):
 ##########################################################################################
 	def parameterContinuousPlot(self,params,**kwargs):
 		"""
-		Plot the 1S sinusoid from a list of different input parameters as well as the observed TTVs and their errorbars.
+		Plot the ttv from a list of different input parameters as well as the observed TTVs and their errorbars.
 		Parameters
 		----------
 		params : array
@@ -572,6 +572,7 @@ class MultiplanetAnalyticTTVSystem(object):
 		axList = []
 		exclude = kwargs.get('exclude',[])	
 		Npts = kwargs.get('Npts',200)
+		showObs = kwargs.get('showObs',True)
 		#----------------------- Analytic TTVs -----------------------#
 
 		mass_ecc = params[:self.nPlanets * 3]
@@ -593,25 +594,105 @@ class MultiplanetAnalyticTTVSystem(object):
 			
 			ttv = linefit_resids(trNums,trTimes,trErrs)
 			ttv = trTimes - trNums * self.periodEstimates[i] - self.tInitEstimates[i]
-			axList[i].errorbar(trTimes,ttv,yerr=trErrs,fmt='kx',mew=1.3)
+			#---- Plot Observed TTV ----#
+			if showObs:
+				axList[i].errorbar(trTimes,ttv,yerr=trErrs,fmt='kx',mew=1.3,label='Observed')
+
 			continuousTTV=continuousTimes[i][:,1] - continuousTimes[i][:,0] * self.periodEstimates[i] - self.tInitEstimates[i]
-			axList[i].plot(continuousTimes[i][:,1],continuousTTV,'k-')
+			#---- Plot Model TTV ----#
+			axList[i].plot(continuousTimes[i][:,1],continuousTTV,\
+				linestyle= kwargs.get('linestyle','-'),\
+				color=kwargs.get('color','k'),\
+				label=kwargs.get('label',None),\
+				linewidth=kwargs.get('linewidth',1.0)\
+				)
+			#------------------------#
 			aTTV = aTimes[i][:,1] - aTimes[i][:,0] * self.periodEstimates[i] - self.tInitEstimates[i]
-			axList[i].plot(aTimes[i][:,1],aTTV,linestyle='',marker='o',mfc='w',mec='r',mew=2,zorder=1)
+			
+			# axList[i].plot(aTimes[i][:,1],aTTV,linestyle='',marker='o',mfc='w',mec='r',mew=2,zorder=1)
 			
 			maxTTV = np.max( np.abs(ttv) )
 			axList[i].set_ylim( -1.3*maxTTV, 1.3*maxTTV )
 			
-			locs,labls = yticks()
+			locs,labls = pl.yticks()
 			locs = map(lambda x: int(round(24*60*x))/(24.*60.),locs[1:-1])
-			yticks( locs , 24.*60.*np.array(locs) ) 
+			pl.yticks( locs , 24.*60.*np.array(locs) ) 
+
 		pl.subplots_adjust(hspace=0.0)
 			
 		return(axList)
 ##########################################################################################
 #	End Continous TTV Plot	
 ##########################################################################################
+##########################################################################################
+#	Begin Continuous 1S Residual TTV Plot	
+##########################################################################################
+
+	def parameterContinuous1SResidPlot(self,params,**kwargs):
+		"""
+		Plot the ttv from a list of different input parameters as well as the observed TTVs and their errorbars.
+		Parameters
+		----------
+		params : array
+		 List of parameters to analytic model for plotting.  Either an N x (5*nPlanets-2)  2-dimensional array
+		or a single set of (3*nPlanets-2) paramters.
+		"""
+		axList = []
+		exclude = kwargs.get('exclude',[])	
+		Npts = kwargs.get('Npts',200)
+		showObs = kwargs.get('showObs',True)
+		nbodyTimes = kwargs.get('nbodyTimes',None)
+		#----------------------- Analytic TTVs -----------------------#
+
+		mass_ecc = params[:self.nPlanets * 3]
+		pAndL = self.bestFitUnscaledPeriodAndLongitude(mass_ecc)
+		continuousTimes1S = self.ContinuousTransitTimes(mass_ecc,pAndL ,epoch=np.min(self.flatTimes),exclude=['F','2S'],Npts=Npts )
+		continuousTimes = self.ContinuousTransitTimes(mass_ecc,pAndL ,epoch=np.min(self.flatTimes),Npts=Npts )
+	#	pl.plot(continuousTimes[-1] , continuousTimes[-1] - continuousTimes1S[-1], 'k-')
+		
+		aTimes = self.TransitTimes(mass_ecc,pAndL ,epoch=np.min(self.flatTimes), exclude=['F','2S'] )
+		
+		for i,data in enumerate(zip(self.transitNumbers,self.transitTimes,self.transitUncertainties)):
+			if i==0:
+				axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1) )
+			else:
+				axList.append( pl.subplot(self.nPlanets*100 + 10 + i +1,sharex=axList[0]) )
+			if i != self.nPlanets-1:
+					pl.setp( axList[i].get_xticklabels(), visible=False )
+
+			trNums,trTimes,trErrs = data 
 	
+			#---- Plot Observed TTV ----#
+			if showObs:
+				axList[i].errorbar(trTimes, trTimes - aTimes[i][:,1] ,yerr=trErrs,fmt='kx',mew=1.3,label='Observed')
+			if nbodyTimes:
+				nbt = nbodyTimes[i][trNums]
+				axList[i].plot(nbt, nbt - aTimes[i][:,1],'k-',label='N-body')
+				
+			#---- Plot Model TTV ----#
+			axList[i].plot(continuousTimes[i][:,1] , continuousTimes[i][:,1] - continuousTimes1S[i][:,1],\
+				linestyle= kwargs.get('linestyle','-'),\
+				color=kwargs.get('color','r'),\
+				label=kwargs.get('label','Analytic'),\
+				linewidth=kwargs.get('linewidth',1.0)\
+				)
+			#------------------------#
+
+			# Convert y-ticks to minutes
+			locs,labls = pl.yticks()
+			locs = map(lambda x: int(round(24*60*x))/(24.*60.),locs[1:-1])
+			pl.yticks( locs , 24.*60.*np.array(locs) ) 
+
+		pl.subplots_adjust(hspace=0.0)
+			
+		return(axList)
+
+
+
+##########################################################################################
+#	Begin Continuous 1S Residual TTV Plot	
+##########################################################################################
+
 	
 	
 	def parameterTTVResidualsPlot(self,params,normalized=False,**kwargs):
@@ -833,13 +914,16 @@ if __name__=="__main__":
 	
 	pAndLbest = analyticFit.bestFitPeriodAndLongitude(mAnde)
 	analyticFit.bestFitUnscaledPeriodAndLongitude(mAnde)
-	axList=analyticFit.parameterContinuousPlot(mAnde,exclude=['F','2S'],Npts=300)
+	axList=analyticFit.parameterContinuousPlot(mAnde,exclude=['F','2S'],Npts=300,label='Principal')
+	axList=analyticFit.parameterContinuousPlot(mAnde,color='r',Npts=300,showObs=False,label='All')
+	leg=legend()
 
 	show()
-	
-#  analyticFit.parameterTTV1SResidualsPlot(pAndLbest,label='Full Analytic Model',fmt='bs-')
-#  axList = analyticFit.parameterTTV1SResidualsPlot(pAndLbest,exclude=['F'],showObs=False,label='No Fast Terms',fmt='rs-')
-#  axList[-1].legend(loc=3)
+# 	figure()
+#  	analyticFit.parameterTTV1SResidualsPlot(pAndLbest,label='Full Analytic Model',fmt='bs-')
+#  	axList = analyticFit.parameterTTV1SResidualsPlot(pAndLbest,exclude=['F'],showObs=False,label='No Fast Terms',fmt='rs-')
+#  	axList[-1].legend(loc=3)
+#  	show()
 # 
 #  xlabel('Time')
 #  ylabel('TTV')
