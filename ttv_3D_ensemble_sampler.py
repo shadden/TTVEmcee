@@ -224,11 +224,17 @@ if __name__=="__main__":
 	
 	else:
 		# Initialize new walkers
-		ic = nbody_fit.coplanar_initial_conditions(.3e-5*ones(nplanets),random.normal(0,0.01,nplanets),random.normal(0,0.01,nplanets))
-		fitdata= nbody_fit.LeastSquareParametersFit( ic[:,(0,1,2,3,6)] )
-		best,cov = fitdata[:2]
-		
+		fbest = -inf
+		while fbest ==-inf:
+			ic = nbody_fit.coplanar_initial_conditions(.3e-5*ones(nplanets),random.normal(0,0.01,nplanets),random.normal(0,0.01,nplanets))
+			fitdata= nbody_fit.LeastSquareParametersFit( ic[:,(0,1,2,3,6)] )
+			best,cov = fitdata[:2]
+			if coplanar:
+				fbest = fit(best)
+			else:
+				fbest = 1 # hack... 
 		print "Initial (coplanar) Fitness: %.2f"%nbody_fit.ParameterFitness(best)
+		print best
 		if not coplanar:
 			# 3D L-M Fit
 			best3d = best.reshape(-1,5)
