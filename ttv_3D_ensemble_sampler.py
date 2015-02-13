@@ -211,11 +211,10 @@ if __name__=="__main__":
 			p = loadtxt('chain.dat.gz')[nlnlike,:]
 		else:
 			lnlike = lnlike[-nwalkers]
-			p = loadtxt('chain.dat.gz')[-nwalkers,:]
-		print p.shape,lnlike.shape
+			p = loadtxt('chain.dat.gz')[-nwalkers:,]
+		print "%d x %d chain loaded"%p.shape
 		old_best= p[argmax(lnlike)]
 		old_best_lnlike = fit(old_best)
-		print "%d x %d chain loaded"%p.shape
 		print "Best likelihood: %.1f"%old_best_lnlike
 	
 	elif args.parfile:
