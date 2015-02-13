@@ -144,13 +144,13 @@ def get_dk1_array(pratio):
 	return array( [ dk1(alpha,j) for j in arange(1,jMax)])
 def get_g_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ g(alpha,j) for j in arange(3,9)])
+	return array( [ g(alpha,j) for j in arange(3,11)])
 def get_g1Ext_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ g1(alpha,j,perturber="External") for j in arange(3,9)])
+	return array( [ g1(alpha,j,perturber="External") for j in arange(3,11)])
 def get_g1Int_array(pratio):
 	alpha = pratio**(-2./3.)
-	return array( [ g1(alpha,j,perturber="Internal") for j in arange(3,9)])
+	return array( [ g1(alpha,j,perturber="Internal") for j in arange(3,11)])
 def get_h_array(pratio):
 	alpha = pratio**(-2/3.)
-	return array( [ h(alpha,j) for j in arange(3,9)])
+	return array( [ h(alpha,j) for j in arange(3,11)])
