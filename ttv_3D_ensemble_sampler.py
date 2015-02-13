@@ -54,6 +54,7 @@ if __name__=="__main__":
 	parser.add_argument('--noloop', default=False, action='store_true', help='Run set-up but do not excecute the MCMC main loop')
 	parser.add_argument('--input','-I',metavar='FILE',default='planets.txt',help='File that lists the names of the files containing input transits')
 	parser.add_argument('--priors',metavar='[g | l]',default=None,help='Use eccentricity priors. g: Gaussian , l: log-uniform')
+	parser.add_argument('--mpriors',metavar='[u | l]',default='u',help='Use mass priors. u: Uniform , l: log-uniform')
 
 	parser.add_argument('--relative_coords',default=False,action='store_true',help='Reduce number of parameter dimensions by fixing ascending node of inner planet to 0')
 	parser.add_argument('--coplanar',default=False,action='store_true',help='Model TTVs with coplanar planets.')
@@ -70,6 +71,7 @@ if __name__=="__main__":
 	nburn = args.nburn
 	infile = args.input
 	priors = args.priors
+	mpriors = args.mpriors
 	
 	rel_nodes = args.relative_coords
 	coplanar = args.coplanar
@@ -177,6 +179,8 @@ if __name__=="__main__":
 			logp = np.sum( log10( 1.0 / sqrt(exs**2 + eys**2) ) )
 		else:
 			logp = 0.0
+		if mpriors =='l':
+			logp+=  np.sum( log10( 1.0 / (masses + 1.e-7) ) ) )
 		
 		if coplanar:
 			return nbody_fit.ParameterFitness(x) + logp
