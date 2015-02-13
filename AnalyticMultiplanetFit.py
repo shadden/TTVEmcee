@@ -758,7 +758,17 @@ class MultiplanetAnalyticTTVSystem(object):
 			diff = transitNumberAndTime[i][:,1] - self.transitTimes[i]
 			chi2 += np.sum( np.power(diff,2)/ np.power(sigma,2) )
 		return -0.5 * chi2
-				
+
+	def parameter_Chi2_Per_Planet(self,params,Only_1S=False,exclude=[]):
+		transitNumberAndTime = self.parameterTransitTimes(params,Only_1S,exclude)
+		chi2s = []
+		for i in range(self.nPlanets):
+			sigma = self.transitUncertainties[i]
+			diff = transitNumberAndTime[i][:,1] - self.transitTimes[i]
+			chi2s.append( np.sum( np.power(diff,2)/ np.power(sigma,2) ) )
+		return np.array(chi2s)
+		
+	
 	def bestFitParameters(self,params0,exclude=[]):
 		target_data = np.array([])
 		errors = np.array([])
