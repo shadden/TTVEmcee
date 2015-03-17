@@ -58,6 +58,7 @@ if __name__=="__main__":
 
 	parser.add_argument('--relative_coords',default=False,action='store_true',help='Reduce number of parameter dimensions by fixing ascending node of inner planet to 0')
 	parser.add_argument('--coplanar',default=False,action='store_true',help='Model TTVs with coplanar planets.')
+	parser.add_argument('--clip',default=False,action='store_true',help='Clip 3-sigma outliers from TTVs')
 	
 	#----------------------------------------------------------------------------------
 	# command-line arguments:
@@ -94,7 +95,7 @@ if __name__=="__main__":
 
 #----------------------------------------------------------------------------------
 # Get input TTV data and remove outliers
-	trim = None
+	trim = args.clip
 	if trim:
 		input_dataTR = TrimData(input_data,tol=3.)
 		for i,new_transits in enumerate(input_dataTR):
@@ -176,11 +177,11 @@ if __name__=="__main__":
 		if priors=='g':
 			logp = -1.0*sum( 0.5 * (exs**2 + eys**2 ) / 0.017**2 )
 		elif priors =='l':
-			logp = np.sum( log10( 1.0 / sqrt(exs**2 + eys**2) ) )
+			logp = sum( log10( 1.0 / sqrt(exs**2 + eys**2) ) )
 		else:
 			logp = 0.0
 		if mpriors =='l':
-			logp+=  np.sum( log10( 1.0 / (masses + 1.e-7) ) ) )
+			logp+=  sum( log10( 1.0 / (masses + 1.e-7) ) ) 
 		
 		if coplanar:
 			return nbody_fit.ParameterFitness(x) + logp
@@ -192,7 +193,7 @@ if __name__=="__main__":
 		if bad_angs:
 			return -inf
 			
-		return nbody_fit.ParameterFitness(x) + logp	+ logpInc(x)			
+		return nbody_fit.ParameterFitness(x) + logp+ logpInc(x)			
 #--------------------------------------------
 
 #-----------------------------------------------------------------
@@ -221,16 +222,18 @@ if __name__=="__main__":
 		old_best_lnlike = fit(old_best)
 		print "Best likelihood: %.1f"%old_best_lnlike
 	
-	elif args.parfile:
-		old_best = pars0
-		old_best_lnlike = fit(old_best)
 	
 	else:
 		# Initialize new walkers
 		fbest = -inf
 		while fbest ==-inf:
-			ic = nbody_fit.coplanar_initial_conditions(.3e-5*ones(nplanets),random.normal(0,0.01,nplanets),random.normal(0,0.01,nplanets))
-			fitdata= nbody_fit.LeastSquareParametersFit( ic[:,(0,1,2,3,6)] )
+			if args.parfile:
+				ic = pars0
+			else:
+				ic = nbody_fit.coplanar_initial_conditions(.1e-5*ones(nplanets),random.normal(0,0.005,nplanets),random.normal(0,0.005,nplanets))
+				ic = ic[:,(0,1,2,3,6)]
+			print ic
+			fitdata= nbody_fit.LeastSquareParametersFit( ic )
 			best,cov = fitdata[:2]
 			if coplanar:
 				fbest = fit(best)
