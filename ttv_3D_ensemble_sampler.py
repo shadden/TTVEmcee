@@ -57,6 +57,7 @@ if __name__=="__main__":
 	parser.add_argument('--mpriors',metavar='[u | l]',default='u',help='Use mass priors. u: Uniform , l: log-uniform')
 
 	parser.add_argument('--relative_coords',default=False,action='store_true',help='Reduce number of parameter dimensions by fixing ascending node of inner planet to 0')
+	parser.add_argument('--nodes',default=False,action='store_true',help='3D fits but with all inclinations fixed to 90 degrees')
 	parser.add_argument('--coplanar',default=False,action='store_true',help='Model TTVs with coplanar planets.')
 	parser.add_argument('--clip',default=False,action='store_true',help='Clip 3-sigma outliers from TTVs')
 	
@@ -75,6 +76,7 @@ if __name__=="__main__":
 	mpriors = args.mpriors
 	
 	rel_nodes = args.relative_coords
+	nodefit = args.nodes
 	coplanar = args.coplanar
 	#----------------------------------------------------------------------------------
 
@@ -122,6 +124,8 @@ if __name__=="__main__":
 	
 	if rel_nodes:
 		ndim = 7*nplanets - 1
+	elif nodefit:
+		ndim = 6*nplanets - 1 
 	elif coplanar:
 		ndim = 5*nplanets
 	else:
@@ -132,31 +136,34 @@ if __name__=="__main__":
 
 #--------------------------------------------
 # Impact parameter information
-	with open("inclination_data.txt") as fi:
-		lines = [l.split() for l in fi.readlines()]
-	mstar,sigma_mstar = map(float,lines[0])
-	rstar,sigma_rstar = map(float,lines[1])
-	b,sigma_b = array([map(float,l[1:]) for l in lines[2:] ]).T
+	if not coplanar and not nodefit:
+		with open("inclination_data.txt") as fi:
+			lines = [l.split() for l in fi.readlines()]
+		mstar,sigma_mstar = map(float,lines[0])
+		rstar,sigma_rstar = map(float,lines[1])
+		b,sigma_b = array([map(float,l[1:]) for l in lines[2:] ]).T
 	
-	b_Obs = ttv.ImpactParameterObservations([rstar,sigma_rstar],[mstar,sigma_mstar], vstack((b,sigma_b)).T)
+		b_Obs = ttv.ImpactParameterObservations([rstar,sigma_rstar],[mstar,sigma_mstar], vstack((b,sigma_b)).T)
 #--------------------------------------------
-	def logpInc(x):
-		if rel_nodes:
-			xs = insert(x,5,0.).reshape(-1,7)
-		elif coplanar:
+		def logpInc(x):
+			if rel_nodes:
+				xs = insert(x,5,0.).reshape(-1,7)
+			else:
+				xs = x.reshape(-1,7)
+			inclinations = xs[:,4]
+			periods = xs[:,1]
+			return b_Obs.ImpactParametersPriors(inclinations, periods) 
+	else:
+		def logpInc(x):
 			return 0
-		else:
-			xs = x.reshape(-1,7)
-		inclinations = xs[:,4]
-		periods = xs[:,1]
-		return b_Obs.ImpactParametersPriors(inclinations, periods) 
-
 #--------------------------------------------
 # Likelihood function
 
 	def fit(x):
 		if rel_nodes:
 			xs = insert(x,5,0.).reshape(-1,7)
+		elif nodefit:
+			xs = insert(x,4,0.).reshape(-1,6)
 		elif coplanar:
 			xs = x.reshape(-1,5)
 		else:
@@ -183,8 +190,9 @@ if __name__=="__main__":
 		if mpriors =='l':
 			logp+=  sum( log10( 1.0 / (masses + 1.e-7) ) ) 
 		
-		if coplanar:
-			return nbody_fit.ParameterFitness(x) + logp
+		if coplanar or nodefit:
+			return nbody_fit.ParameterFitness(xs) + logp
+		
 		
 		# Angles should be between -pi and pi.  
 		#  Only evaluated if not coplanar model
@@ -193,7 +201,7 @@ if __name__=="__main__":
 		if bad_angs:
 			return -inf
 			
-		return nbody_fit.ParameterFitness(x) + logp+ logpInc(x)			
+		return nbody_fit.ParameterFitness(x) + logp + logpInc(x)			
 #--------------------------------------------
 
 #-----------------------------------------------------------------
@@ -232,7 +240,6 @@ if __name__=="__main__":
 			else:
 				ic = nbody_fit.coplanar_initial_conditions(.1e-5*ones(nplanets),random.normal(0,0.005,nplanets),random.normal(0,0.005,nplanets))
 				ic = ic[:,(0,1,2,3,6)]
-			print ic
 			fitdata= nbody_fit.LeastSquareParametersFit( ic )
 			best,cov = fitdata[:2]
 			if coplanar:
@@ -241,7 +248,8 @@ if __name__=="__main__":
 				fbest = 1 # hack... 
 		print "Initial (coplanar) Fitness: %.2f"%nbody_fit.ParameterFitness(best)
 		print best
-		if not coplanar:
+		
+		if not coplanar and not nodefit:
 			# 3D L-M Fit
 			best3d = best.reshape(-1,5)
 			i0,sigma_i=b_Obs.ImpactParametersToInclinations(nbody_fit.Observations.PeriodEstimates)
@@ -273,8 +281,16 @@ if __name__=="__main__":
 		shrink = 10.
 		p = zeros(( nwalkers,ndim ))
 		for i in range(nwalkers):
+	
+			# draw a random start position near the best fit
 			par = random.multivariate_normal(best,cov/(shrink*shrink))
-			if not coplanar:
+			# add in small ascending nodes if using a 3D fit
+			if nodefit:
+				par = par.reshape(-1,5)
+				nodesRand = random.normal(0,0.01,(nplanets,1)) 
+				par = hstack((par[:,:4],nodesRand,par[:,4:] )).reshape(-1)
+				par = delete(par,4)
+			if not coplanar and not nodefit:
 				par = mod_angvars(par,nplanets)
 				# randomly flip I's to alternate value that gives the same impact parameter
 				for j in range(nplanets):
@@ -286,7 +302,13 @@ if __name__=="__main__":
 			#---- If initial parameter vector draw is bad, draw until a good vector is initialized ----#
 			while fit(par) == -inf:
 				par = random.multivariate_normal(best,cov/(shrink*shrink))
-				if not coplanar:
+				if nodefit:
+					par = par.reshape(-1,5)
+					nodesRand = random.normal(0,0.01,(nplanets,1)) 
+					par = hstack((par[:,:4],nodesRand,par[:,4:] )).reshape(-1)
+					par = delete(par,4)
+					
+				if not coplanar and not nodefit:
 					par = mod_angvars(par,nplanets)
 					# randomly flip I's to alternate value that gives the same impact parameter
 					for j in range(nplanets):
