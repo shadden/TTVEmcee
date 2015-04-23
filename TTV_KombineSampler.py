@@ -1,7 +1,8 @@
 import os
 who =os.popen("whoami") 
-print who.readline().strip()
-if who.readline().strip() =='samuelhadden':
+
+myid = who.readline().strip()
+if myid=='samuelhadden':
 	print "On laptop..."
 	TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
 	ANALYTIC_TTV_PATH = "/Users/samuelhadden/13_HighOrderTTV/TTVEmcee"
@@ -14,6 +15,7 @@ who.close()
 import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
 sys.path.insert(0, ANALYTIC_TTV_PATH)
+sys.path.insert(0, TTVFAST_PATH)
 
 import gzip
 import acor
@@ -304,8 +306,8 @@ if __name__=="__main__":
 					par = convert2rel_node(par,nplanets)
 
 			#---- If initial parameter vector draw is bad, draw until a good vector is initialized ----#
-			lnlikes[i] = fit(par)
-			while lnlikes[i] == -inf:
+			lnpost[i] = fit(par)
+			while lnpost[i] == -inf:
 				par = random.multivariate_normal(best,cov/(shrink*shrink))
 				if nodefit:
 					par = par.reshape(-1,5)
@@ -328,7 +330,7 @@ if __name__=="__main__":
 	# initialize sampler
 	sampler = kombine.Sampler(nwalkers,ndim,fit)
 	print "Burning in"
-	sampler.burnin(p,lnpost0=lnpost )
+#	sampler.burnin(p,lnpost0=lnpost )
 
 	print "ready to rock!"
 	#sampler.run_mcmc(1000)
