@@ -1,5 +1,6 @@
 import os
 who =os.popen("whoami") 
+print who.readline().strip()
 if who.readline().strip() =='samuelhadden':
 	print "On laptop..."
 	TTVFAST_PATH = "/Users/samuelhadden/15_TTVFast/TTVFast/c_version/myCode/PythonInterface"
@@ -12,13 +13,14 @@ who.close()
 
 import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
+sys.path.insert(0, ANALYTIC_TTV_PATH)
 
 import gzip
 import acor
 import multiprocessing as multi
 from numpy import *
 from fitnessNEW import *
-import emcee
+import kombine
 import matplotlib.pyplot as pl
 from argparse import ArgumentParser
 import inclinations
@@ -278,8 +280,10 @@ if __name__=="__main__":
 			for par in best.reshape(nplanets,-1):
 				print "\t",par	
 	
-		shrink = 10.
+		# Try a larger blob than the error ellipse?
+		shrink = .8
 		p = zeros(( nwalkers,ndim ))
+		lnpost = zeros(nwalkers)
 		for i in range(nwalkers):
 	
 			# draw a random start position near the best fit
@@ -300,7 +304,8 @@ if __name__=="__main__":
 					par = convert2rel_node(par,nplanets)
 
 			#---- If initial parameter vector draw is bad, draw until a good vector is initialized ----#
-			while fit(par) == -inf:
+			lnlikes[i] = fit(par)
+			while lnlikes[i] == -inf:
 				par = random.multivariate_normal(best,cov/(shrink*shrink))
 				if nodefit:
 					par = par.reshape(-1,5)
@@ -316,69 +321,15 @@ if __name__=="__main__":
 							par[j*7 + 4] = pi - par[j*7 + 4]
 					if rel_nodes:
 						par = convert2rel_node(par,nplanets)
+				lnpost[i] = fit(par)
 
 			p[i] = par		
 				
 	# initialize sampler
-	sampler = emcee.EnsembleSampler(nwalkers,ndim,fit,threads=nthreads)
+	sampler = kombine.Sampler(nwalkers,ndim,fit)
+	print "Burning in"
+	sampler.burnin(p,lnpost0=lnpost )
 
-	print "Beggining ensemble evolution"
-	print "Running with %d parallel threads" % nthreads
-	sys.stdout.flush()
-
-
-	if not restart or args.erase:
-		with gzip.open('chain.dat.gz', 'w') as out:
-				out.write("# Parameter Chains\n")
-		with gzip.open('chain.lnlike.dat.gz', 'w') as out:
-				out.write("# Likelihoods\n")
-
-#------------------------------------------------
-# --- Burn-in Phase --- #
-#------------------------------------------------
+	print "ready to rock!"
+	#sampler.run_mcmc(1000)
 	
-	if not restart and not args.noloop and not args.parfile:
-	# If starting MCMC for first time, generate some samples to find a starting place from
-		print "Starting burn-in..."
-		for p,lnlike,blobs in sampler.sample(p, iterations=nburn, storechain = True):
-			pass
-		print "Burn-in complete, starting main loop"
-
-		old_best = sampler.flatchain[argmax(sampler.flatlnprobability)]
-		old_best_lnlike = fit(old_best)
-	
-	sampler.reset()
-#------------------------------------------------
-# --- Main Loop  --- #
-#------------------------------------------------
-		
-	nloops = int(ceil(nensembles/nthin))
-	for k in range(nloops):
-		if args.noloop:
-			break
-		# take 'nthin' samples.
-		for p,lnlike,blobs in sampler.sample(p,iterations=nthin, storechain = False):
-			pass
-		
-		print '(%d/%d) acceptance fraction = %.3f'%( k+1, nloops, mean(sampler.acceptance_fraction) )
-		sys.stdout.flush()
-
-		maxlnlike = max(lnlike)
-		
-		if old_best_lnlike is None:
-			old_best_lnlike = maxlnlike
-			print 'Found best likelihood of {0:.1f}'.format(old_best_lnlike)
-
-		if maxlnlike >  old_best_lnlike + p.shape[-1]/2.0:
-			old_best_lnlike =  maxlnlike
-			print 'Found new best likelihood of {0:.1f}'.format(old_best_lnlike)
-			print
-			sys.stdout.flush()
-			
-			#continue
-
-		# Append current state to chain file
-		with gzip.open('chain.dat.gz', 'a') as out:
-			savetxt(out, p)
-		with gzip.open('chain.lnlike.dat.gz', 'a') as out:
-			savetxt(out, lnlike)
