@@ -329,10 +329,11 @@ if __name__=="__main__":
 				
 	# initialize sampler
 	print "Initializing sampler with %d threads"%nthreads
-	sampler = kombine.Sampler(nwalkers,ndim,fit,processes=nthreads)
+	sampler = kombine.Sampler(nwalkers,ndim,fit,processes=4)
 	print "Burning in"
-	sampler.burnin(p,lnpost0=lnpost )
-
-	print "ready to rock!"
-	#sampler.run_mcmc(1000)
+	for i in range(4):
+		for p,lnpost,lnprob in sampler.sample(p0=p,lnpost0=lnpost,iterations=20,update_interval=10):
+			pass
+	
+		print i,sampler.acceptance_fraction.shape, mean(sampler.acceptance_fraction)
 	
