@@ -283,7 +283,7 @@ if __name__=="__main__":
 				print "\t",par	
 	
 		# Try a larger blob than the error ellipse?
-		shrink = .8
+		shrink = 5.0
 		p = zeros(( nwalkers,ndim ))
 		lnpost = zeros(nwalkers)
 		for i in range(nwalkers):
@@ -328,7 +328,8 @@ if __name__=="__main__":
 			p[i] = par		
 				
 	# initialize sampler
-	sampler = kombine.Sampler(nwalkers,ndim,fit)
+	print "Initializing sampler with %d threads"%nthreads
+	sampler = kombine.Sampler(nwalkers,ndim,fit,processes=nthreads)
 	print "Burning in"
 #	sampler.burnin(p,lnpost0=lnpost )
 
