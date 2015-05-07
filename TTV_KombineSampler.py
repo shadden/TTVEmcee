@@ -212,27 +212,27 @@ if __name__=="__main__":
 #	# --- Initialize Walkers  --- #
 #-----------------------------------------------------------------	
 	means=[]
-	lnlike = None
+	lnpost = None
 	old_best= None
-	old_best_lnlike = None
+	old_best_lnpost = None
 	reset = False
 	Nmeasured = 0
 
 	if restart:
 		# Read in old walkers
 		print "Loading chain from file..."
-		lnlike = loadtxt('chain.lnlike.dat.gz')
+		lnpost = loadtxt('chain.lnpost.dat.gz')
 		if args.erase:
 			# take the best old walker positions
-			lnlike,nlnlike = sort(lnlike)[-nwalkers:] ,argsort(lnlike)[-nwalkers:]
-			p = loadtxt('chain.dat.gz')[nlnlike,:]
+			lnpost,nlnpost = sort(lnpost)[-nwalkers:] ,argsort(lnpost)[-nwalkers:]
+			p = loadtxt('chain.dat.gz')[nlnpost,:]
 		else:
-			lnlike = lnlike[-nwalkers]
+			lnpost = lnpost[-nwalkers]
 			p = loadtxt('chain.dat.gz')[-nwalkers:,]
 		print "%d x %d chain loaded"%p.shape
-		old_best= p[argmax(lnlike)]
-		old_best_lnlike = fit(old_best)
-		print "Best likelihood: %.1f"%old_best_lnlike
+		old_best= p[argmax(lnpost)]
+		old_best_lnpost = fit(old_best)
+		print "Best likelihood: %.1f"%old_best_lnpost
 	
 	
 	else:
@@ -326,14 +326,43 @@ if __name__=="__main__":
 				lnpost[i] = fit(par)
 
 			p[i] = par		
-				
+	
+	if not restart or args.erase:
+		with gzip.open('chain.dat.gz', 'w') as out:
+				out.write("# Parameter Chains\n")
+		with gzip.open('chain.lnpost.dat.gz', 'w') as out:
+				out.write("# Posterior Probabilities\n")
+		
 	# initialize sampler
 	print "Initializing sampler with %d threads"%nthreads
-	sampler = kombine.Sampler(nwalkers,ndim,fit,processes=4)
-	print "Burning in"
-	for i in range(4):
-		for p,lnpost,lnprob in sampler.sample(p0=p,lnpost0=lnpost,iterations=20,update_interval=10):
-			pass
+
+	sampler = kombine.Sampler(nwalkers,ndim,fit,processes=nthreads)
+	mode = 1
+	if mode==1:
+		# Run by using the `burn-in' black box and then running the MCMC...
+		print "Starting burn-in"
+		sampler.burnin(p)
+		print "Average acceptance fraction: %.4f"%mean(sampler.acceptance_fraction)
+		print "Chain Shape: \t", mean(sampler.chain.shape)
+		print "Burn-in completed, running..."
+		p = sampler.chain[-1,...]
 	
-		print i,sampler.acceptance_fraction.shape, mean(sampler.acceptance_fraction)
+		sampler.run_mcmc(500,p,update_interval=50)
 	
+		savetxt("acceptance.dat.gz",sampler.acceptance_fraction)
+		savetxt("chain.dat.gz",sampler.chain[::20,:,:])
+		savetxt("chain.lnpost.dat.gz",sampler.lnpost[::20,:,:])
+		
+		
+		
+	else:
+		nloops = int(ceil(nensembles/nthin))
+		for i in range(nloops):
+			for p,lnpost,lnprob in sampler.sample(p0=p,lnpost0=lnpost,iterations=nthin,update_interval=nthin,storechain = False):
+				pass	
+			print i
+		# Append current state to chain file
+			with gzip.open('chain.dat.gz', 'a') as out:
+				savetxt(out, p)
+			with gzip.open('chain.lnpost.dat.gz', 'a') as out:
+				savetxt(out, lnpost.reshape(-1,1) )
