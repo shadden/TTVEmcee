@@ -337,7 +337,7 @@ if __name__=="__main__":
 	print "Initializing sampler with %d threads"%nthreads
 
 	sampler = kombine.Sampler(nwalkers,ndim,fit,processes=nthreads)
-	mode = 1
+	mode = 2
 	if mode==1:
 		# Run by using the `burn-in' black box and then running the MCMC...
 		print "Starting burn-in"
@@ -355,14 +355,16 @@ if __name__=="__main__":
 		
 		
 		
-	else:
-		nloops = int(ceil(nensembles/nthin))
-		for i in range(nloops):
-			for p,lnpost,lnprob in sampler.sample(p0=p,lnpost0=lnpost,iterations=nthin,update_interval=nthin,storechain = False):
-				pass	
+	elif mode==2:
+		#nloops = int(ceil(nensembles/nthin))
+		for i in range(100):
+			for p,lnpost,lnprob in sampler.sample(p0=p,lnpost0=lnpost,iterations=2,update_interval=10,storechain = True):
+				print sampler.acceptance_fraction[-1]	
 			print i
 		# Append current state to chain file
 			with gzip.open('chain.dat.gz', 'a') as out:
 				savetxt(out, p)
 			with gzip.open('chain.lnpost.dat.gz', 'a') as out:
 				savetxt(out, lnpost.reshape(-1,1) )
+	else:
+		pass
