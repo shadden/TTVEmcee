@@ -53,7 +53,7 @@ if __name__=="__main__":
 	parser.add_argument('-P','--parfile', metavar='FILE', default=None, help='Text file containing parameter values to initialize walker around.')
 	parser.add_argument('--noloop', default=False, action='store_true', help='Run set-up but do not excecute the MCMC main loop')
 	parser.add_argument('--input','-I',metavar='FILE',default='planets.txt',help='File that lists the names of the files containing input transits')
-	parser.add_argument('--priors',metavar='[g | l]',default=None,help='Use eccentricity priors. g: Gaussian , l: log-uniform')
+	parser.add_argument('--priors',metavar='[g | u | l ]',default=None,help='Use eccentricity priors. g: Gaussian, u: uniform, l: log-uniform')
 	parser.add_argument('--mpriors',metavar='[u | l]',default='u',help='Use mass priors. u: Uniform , l: log-uniform')
 
 	parser.add_argument('--relative_coords',default=False,action='store_true',help='Reduce number of parameter dimensions by fixing ascending node of inner planet to 0')
@@ -183,12 +183,14 @@ if __name__=="__main__":
 		
 		if priors=='g':
 			logp = -1.0*sum( 0.5 * (exs**2 + eys**2 ) / 0.017**2 )
-		elif priors =='l':
+		elif priors =='u':
 			logp = sum( log10( 1.0 / sqrt(exs**2 + eys**2) ) )
+		elif priors == 'l':
+			logp = -1.0 * sum( log10(exs**2 + eys**2) )
 		else:
 			logp = 0.0
 		if mpriors =='l':
-			logp+=  sum( log10( 1.0 / (masses + 1.e-7) ) ) 
+			logp +=  sum( log10( 1.0 / (masses + 1.e-7) ) ) 
 		
 		if coplanar or nodefit:
 			return nbody_fit.ParameterFitness(xs) + logp
