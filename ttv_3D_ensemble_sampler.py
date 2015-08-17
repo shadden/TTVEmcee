@@ -238,7 +238,7 @@ if __name__=="__main__":
 			if args.parfile:
 				ic = pars0
 			else:
-				ic = nbody_fit.coplanar_initial_conditions(3e-5*ones(nplanets),random.normal(0,0.001,nplanets),random.normal(0,0.001,nplanets))
+				ic = nbody_fit.coplanar_initial_conditions(3e-5*ones(nplanets),random.normal(0,0.0001,nplanets),random.normal(0,0.0001,nplanets))
 				ic = ic[:,(0,1,2,3,6)]
 			fitdata= nbody_fit.LeastSquareParametersFit( ic )
 			best,cov = fitdata[:2]
