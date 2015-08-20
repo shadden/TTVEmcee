@@ -23,6 +23,7 @@ import matplotlib.pyplot as pl
 from argparse import ArgumentParser
 import inclinations
 from scipy.optimize import minimize
+import h5py
 
 def mod_angvars(p,nplanets):
 	
@@ -78,6 +79,7 @@ if __name__=="__main__":
 	rel_nodes = args.relative_coords
 	nodefit = args.nodes
 	coplanar = args.coplanar
+
 	#----------------------------------------------------------------------------------
 
 	
@@ -181,16 +183,22 @@ if __name__=="__main__":
 		if bad_eccs:
 			return -inf
 		
-		if priors=='g':
+		if priors == 'g':
 			logp = -1.0*sum( 0.5 * (exs**2 + eys**2 ) / 0.017**2 )
-		elif priors =='u':
-			logp = sum( log10( 1.0 / sqrt(exs**2 + eys**2) ) )
+			print "Gaussian priors in e's"
+		elif priors == 'u':
+			print "Uniform priors in e's"
+			logp = -0.5 * sum( log10(exs**2 + eys**2) )
 		elif priors == 'l':
 			logp = -1.0 * sum( log10(exs**2 + eys**2) )
+			print "Log-Uniform priors in e's"
 		else:
 			logp = 0.0
+			print "Linear priors in e's"
+
 		if mpriors =='l':
 			logp +=  sum( log10( 1.0 / (masses + 1.e-7) ) ) 
+			print "Log-uniform priors in mass"
 		
 		if coplanar or nodefit:
 			return nbody_fit.ParameterFitness(xs) + logp
@@ -240,7 +248,7 @@ if __name__=="__main__":
 			if args.parfile:
 				ic = pars0
 			else:
-				ic = nbody_fit.coplanar_initial_conditions(3e-5*ones(nplanets),random.normal(0,0.0001,nplanets),random.normal(0,0.0001,nplanets))
+				ic = nbody_fit.coplanar_initial_conditions(1e-5*ones(nplanets),random.normal(0,0.0001,nplanets),random.normal(0,0.0001,nplanets))
 				ic = ic[:,(0,1,2,3,6)]
 			fitdata= nbody_fit.LeastSquareParametersFit( ic )
 			best,cov = fitdata[:2]
