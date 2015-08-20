@@ -80,6 +80,24 @@ if __name__=="__main__":
 	nodefit = args.nodes
 	coplanar = args.coplanar
 
+	if priors is 'g':
+		pstring = "Gaussian"
+	elif priors is 'u':
+		pstring = "Uniform"
+	elif priors is 'l':
+		pstring = "Log-uniform"
+	else:
+		pstring = "Linear"
+
+	print "Eccentricity priors: %s"%pstring
+
+	if mpriors is 'l':
+		mstring = "Log-uniform"
+	else:
+		mstring = "Uniform"
+	
+	print "Mass priors: %s"%mstring
+
 	#----------------------------------------------------------------------------------
 
 	
@@ -183,22 +201,17 @@ if __name__=="__main__":
 		if bad_eccs:
 			return -inf
 		
-		if priors == 'g':
+		if priors is  'g':
 			logp = -1.0*sum( 0.5 * (exs**2 + eys**2 ) / 0.017**2 )
-			print "Gaussian priors in e's"
-		elif priors == 'u':
-			print "Uniform priors in e's"
+		elif priors is 'u':
 			logp = -0.5 * sum( log10(exs**2 + eys**2) )
-		elif priors == 'l':
+		elif priors is 'l':
 			logp = -1.0 * sum( log10(exs**2 + eys**2) )
-			print "Log-Uniform priors in e's"
 		else:
 			logp = 0.0
-			print "Linear priors in e's"
 
-		if mpriors =='l':
-			logp +=  sum( log10( 1.0 / (masses + 1.e-7) ) ) 
-			print "Log-uniform priors in mass"
+		if mpriors is 'l':
+			logp += -1.0 * sum( log10( masses  ) ) 
 		
 		if coplanar or nodefit:
 			return nbody_fit.ParameterFitness(xs) + logp
