@@ -376,15 +376,17 @@ if __name__=="__main__":
 #------------------------------------------------
 		
 	nloops = int(ceil(nensembles/nthin))
-	for k in range(nloops):
+	k=0
+	while k < nloops:
 		if args.noloop:
 			break
 		# take 'nthin' samples.
 		for p,lnlike,blobs in sampler.sample(p,iterations=nthin, storechain = False):
 			pass
-		
+			
 		print '(%d/%d) acceptance fraction = %.3f'%( k+1, nloops, mean(sampler.acceptance_fraction) )
 		sys.stdout.flush()
+		k += 1
 
 		maxlnlike = max(lnlike)
 		
@@ -397,8 +399,33 @@ if __name__=="__main__":
 			print 'Found new best likelihood of {0:.1f}'.format(old_best_lnlike)
 			print
 			sys.stdout.flush()
+
+			# reset the sampler and iteration counts:
+			sampler.reset()
+			k=0
 			
-			#continue
+			# Find new best starting position:
+			bestpars = p[argmax(lnlike)]
+			fitdata= nbody_fit.LeastSquareParametersFit( bestpars )
+			best,cov = fitdata[:2]
+			shrink = 3.
+			p = zeros(( nwalkers,ndim ))
+			for i in range(nwalkers):
+
+				# draw a random start position near the best fit
+				par = random.multivariate_normal(best,cov/(shrink*shrink))
+				while fit(par) == -inf:
+					par = random.multivariate_normal(best,cov/(shrink*shrink))
+
+				p[i] = par
+
+			# Clear files and rewrite headers	
+			with gzip.open('chain.dat.gz', 'w') as out:
+				out.write("# Parameter Chains\n")
+			with gzip.open('chain.lnlike.dat.gz', 'w') as out:
+				out.write("# Likelihoods\n")
+
+		#continue
 
 		# Append current state to chain file
 		with gzip.open('chain.dat.gz', 'a') as out:
