@@ -14,7 +14,7 @@ import sys
 sys.path.insert(0, '/Users/samuelhadden/13_HighOrderTTV/TTVEmcee')
 
 import gzip
-import acor
+#import acor
 import multiprocessing as multi
 from numpy import *
 from fitnessNEW import *
@@ -24,6 +24,7 @@ from argparse import ArgumentParser
 import inclinations
 from scipy.optimize import minimize
 import h5py
+
 
 def mod_angvars(p,nplanets):
 	
@@ -202,16 +203,16 @@ if __name__=="__main__":
 			return -inf
 		
 		if priors is  'g':
-			logp = -1.0*sum( 0.5 * (exs**2 + eys**2 ) / 0.017**2 )
+			logp = -1.0*sum( 0.5 * (exs**2 + eys**2 ) / 0.02**2 )
 		elif priors is 'u':
-			logp = -0.5 * sum( log10(exs**2 + eys**2) )
+			logp = -0.5 * sum( log(exs**2 + eys**2) )
 		elif priors is 'l':
-			logp = -1.0 * sum( log10(exs**2 + eys**2) )
+			logp = -1.0 * sum( 0.5 * log(exs**2 + eys**2) +  log( sqrt(exs**2 + eys**2 ) + 0.001 )  ) 
 		else:
 			logp = 0.0
 
 		if mpriors is 'l':
-			logp += -1.0 * sum( log10( masses  ) ) 
+			logp += -1.0 * sum( log( masses + 3.0e-7 ) ) 
 		
 		if coplanar or nodefit:
 			return nbody_fit.ParameterFitness(xs) + logp
@@ -241,31 +242,39 @@ if __name__=="__main__":
 		# Read in old walkers
 		print "Loading chain from file..."
 		lnlike = loadtxt('chain.lnlike.dat.gz')
+		Ndone = lnlike.shape[0]/nwalkers
 		if args.erase:
 			# take the best old walker positions
 			lnlike,nlnlike = sort(lnlike)[-nwalkers:] ,argsort(lnlike)[-nwalkers:]
 			p = loadtxt('chain.dat.gz')[nlnlike,:]
 		else:
-			lnlike = lnlike[-nwalkers]
+			
+			lnlike = lnlike[-nwalkers:]
+			print "Loaded last %d ln-liklihoods"%lnlike.shape[0]
+			print "Best walker: %d"%argmax(lnlike)
 			p = loadtxt('chain.dat.gz')[-nwalkers:,]
-		print "%d x %d chain loaded"%p.shape
+
+		print "Loaded last %d ln-liklihoods"%lnlike.shape[0]
 		old_best= p[argmax(lnlike)]
-		old_best_lnlike = fit(old_best)
+		old_best_lnlike = max(lnlike) #fit(old_best)
 		print "Best likelihood: %.1f"%old_best_lnlike
 	
 	
 	else:
 		# Initialize new walkers
+		print "Searching for initial best fit..."
 		fbest = -inf
 		while fbest ==-inf:
 			if args.parfile:
 				ic = pars0
 			else:
-				ic = nbody_fit.coplanar_initial_conditions(1e-5*ones(nplanets),random.normal(0,0.0001,nplanets),random.normal(0,0.0001,nplanets))
+				ic = nbody_fit.coplanar_initial_conditions(1.80e-5*ones(nplanets),random.normal(0,0.002,nplanets),random.normal(0,0.002,nplanets))
 				ic = ic[:,(0,1,2,3,6)]
 			fitdata= nbody_fit.LeastSquareParametersFit( ic )
 			best,cov = fitdata[:2]
 			if coplanar:
+				print "Best fit: "
+				print " ".join(map(lambda x: "%.2e"%x, best) )
 				fbest = fit(best)
 			else:
 				fbest = 1 # hack... 
@@ -376,7 +385,12 @@ if __name__=="__main__":
 #------------------------------------------------
 		
 	nloops = int(ceil(nensembles/nthin))
-	k=0
+	if restart and not args.erase:
+		k = Ndone + 1
+		print "Restarting at step %d..."%(k+1)
+	else:	
+		k=0
+	
 	while k < nloops:
 		if args.noloop:
 			break
@@ -406,9 +420,14 @@ if __name__=="__main__":
 			
 			# Find new best starting position:
 			bestpars = p[argmax(lnlike)]
+			print "Located new best fit at:"
+			for planet_pars in bestpars.reshape(-1,5):
+				str = "\t".join(map( lambda x: "%.4g"%x, planet_pars))
+				print str
 			fitdata= nbody_fit.LeastSquareParametersFit( bestpars )
 			best,cov = fitdata[:2]
 			shrink = 3.
+			
 			p = zeros(( nwalkers,ndim ))
 			for i in range(nwalkers):
 
