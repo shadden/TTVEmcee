@@ -61,6 +61,7 @@ if __name__=="__main__":
 	parser.add_argument('--relative_coords',default=False,action='store_true',help='Reduce number of parameter dimensions by fixing ascending node of inner planet to 0')
 	parser.add_argument('--nodes',default=False,action='store_true',help='3D fits but with all inclinations fixed to 90 degrees')
 	parser.add_argument('--coplanar',default=False,action='store_true',help='Model TTVs with coplanar planets.')
+	parser.add_argument('--norelocate',default=False,action='store_true',help='Disable relocating chains upon finding a substantially improved best fit.')
 	parser.add_argument('--clip',default=False,action='store_true',help='Clip 3-sigma outliers from TTVs')
 	
 	#----------------------------------------------------------------------------------
@@ -76,6 +77,7 @@ if __name__=="__main__":
 	infile = args.input
 	priors = args.priors
 	mpriors = args.mpriors
+	norelocate = args.norelocate
 	
 	rel_nodes = args.relative_coords
 	nodefit = args.nodes
@@ -408,7 +410,7 @@ if __name__=="__main__":
 			old_best_lnlike = maxlnlike
 			print 'Found best likelihood of {0:.1f}'.format(old_best_lnlike)
 
-		if maxlnlike >  old_best_lnlike + p.shape[-1]/2.0:
+		if maxlnlike >  old_best_lnlike + p.shape[-1]/2.0 and not norelocate:
 			old_best_lnlike =  maxlnlike
 			print 'Found new best likelihood of {0:.1f}'.format(old_best_lnlike)
 			print
